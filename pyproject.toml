@@ -1,0 +1,78 @@
+[project]
+name = "zero_spaces_template"
+version = "0.1.0"
+description = "Add a short description here"
+authors = [{ name = "Pablo Vela", email = "pablovela5620@gmail.com" }]
+requires-python = ">= 3.11"
+dependencies = ["gradio-rerun>=0.0.3,<0.1", "mmcv-lite>=2.2.0,<2.3"]
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["src*"]
+
+[tool.pixi.project]
+channels = ["nvidia/label/cuda-11.8.0", "nvidia", "conda-forge", "pytorch"]
+platforms = ["linux-64"]
+
+[tool.pixi.system-requirements]
+libc = { family = "glibc", version = "2.31" }
+
+[tool.pixi.activation]
+scripts = [".pixi.sh"]
+
+
+[tool.pixi.tasks]
+_install-wheel = "python -m pip install $WHL_PATH --force-reinstall"
+_build-wheel = "python -m pip install build && python -m build"
+upload-hf = { cmd = "python tools/upload_to_hf.py", depends_on = [
+    "_build-wheel",
+] }
+
+[tool.pixi.tasks.app]
+cmd = """
+    python tools/gradio_app.py
+    """
+description = "Runs Gradio frontend"
+
+[tool.pixi.tasks.dev-app]
+cmd = """
+    gradio tools/gradio_app.py
+    """
+description = "Runs Gradio frontend for hotreload"
+
+[tool.pixi.feature.spaces.tasks.app]
+cmd = """
+    PYTORCH_JIT=0 python gradio_app.py
+    """
+description = "Runs Gradio frontend for depth comparison"
+depends_on = ["_install-wheel"]
+
+[tool.pixi.pypi-dependencies]
+src = { path = ".", editable = true }
+
+[tool.pixi.dependencies]
+python = "3.11.*"
+pip = ">=24.0,<25"
+cuda = { version = "*", channel = "nvidia/label/cuda-11.8.0" }
+pytorch-cuda = { version = "11.8.*", channel = "pytorch" }
+pytorch = { version = "2.3.*", channel = "pytorch" }
+torchvision = { version = "0.18.*", channel = "pytorch" }
+beartype = ">=0.18.5,<0.19"
+gradio = ">=4.37.2,<4.38"
+rerun-sdk = ">=0.16.1,<0.17"
+numpy = "<2.0.0"
+
+[tool.pixi.feature.spaces.pypi-dependencies]
+spaces = "*"
+
+
+[tool.pixi.environments]
+spaces = { features = ["spaces"], solve-group = "default" }
+
+[tool.ruff]
+ignore = [
+    "F722", # Forward annotation false positive from jaxtyping. Should be caught by pyright.
+]

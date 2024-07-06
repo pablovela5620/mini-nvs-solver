@@ -1,0 +1,2 @@
+export SPACE_ID
+export WHL_PATH
