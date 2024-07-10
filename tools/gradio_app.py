@@ -18,6 +18,8 @@ from queue import SimpleQueue
 import calibur
 import trimesh
 
+from uuid import uuid4
+
 from typing import Final, assert_never, Literal
 
 from jaxtyping import Float64, Float32, Bool
@@ -80,34 +82,13 @@ def svd_render_threaded(
     log_queue.put(frames)
 
 
-@rr.thread_local_stream("warped_image")
-def gradio_warped_image(
-    image_path: str,
-    num_denoise_iters: Literal[25, 50, 100],
-    direction: Literal["left", "right"],
-    degrees_per_frame: int | float,
-    save_path: str,
-    major_radius: float = 60.0,
-    minor_radius: float = 70.0,
-    num_frames: int = 25,  # StableDiffusion Video generates 25 frames
-):
-    # ensure that the degrees per frame is a float
-    degrees_per_frame = float(degrees_per_frame)
-    # convert save_path from string to Path
-    image_path_name = Path(image_path).stem
-    save_path: Path = Path(save_path) / image_path_name
-    if not save_path.exists():
-        save_path.mkdir(parents=True)
-    stream = rr.binary_stream()
-
-    parent_log_path = Path("world")
-
-    # create blueprint
+def create_svd_blueprint(parent_log_path: Path) -> rrb.Blueprint:
     blueprint = rrb.Blueprint(
         rrb.Horizontal(
             rrb.Spatial3DView(
                 origin=f"{parent_log_path}",
             ),
+            rrb.TextLogView(origin="diffusion_step"),
             rrb.Vertical(
                 rrb.Spatial2DView(
                     origin=f"{parent_log_path}/generated_cam/image/rgb",
@@ -125,10 +106,36 @@ def gradio_warped_image(
                 ),
                 rrb.TensorView(origin="latents"),
             ),
-            column_shares=[2, 1, 1],
+            column_shares=[5, 1.5, 2, 2],
         ),
         collapse_panels=True,
     )
+    return blueprint
+
+
+@rr.thread_local_stream("warped_image")
+def gradio_warped_image(
+    image_path: str,
+    num_denoise_iters: Literal[2, 25, 50, 100],
+    direction: Literal["left", "right"],
+    degrees_per_frame: int | float,
+    major_radius: float = 60.0,
+    minor_radius: float = 70.0,
+    num_frames: int = 25,  # StableDiffusion Video generates 25 frames
+):
+    # ensure that the degrees per frame is a float
+    degrees_per_frame = float(degrees_per_frame)
+    # convert save_path from string to Path
+    image_path_name = Path(image_path).stem
+    save_path: Path = Path(image_path).parent / f"{image_path_name}_{uuid4()}"
+    if not save_path.exists():
+        save_path.mkdir(parents=True)
+    stream = rr.binary_stream()
+
+    parent_log_path = Path("world")
+
+    # create blueprint
+    blueprint: rrb.Blueprint = create_svd_blueprint(parent_log_path)
     rr.send_blueprint(blueprint)
     cam_log_path = parent_log_path / "initial_cam"
 
@@ -158,7 +165,7 @@ def gradio_warped_image(
     rr.log(f"{cam_log_path}/image/rgb", rr.Image(rgb_o).compress(jpeg_quality=80))
 
     relative_pred: RelativeDepthPrediction = DepthAnythingV2Predictor.__call__(
-        np.array(PIL.Image.open(image_path)), K_33=K.astype(np.float32)
+        np.array(PIL.Image.open(image_path))  # , K_33=K.astype(np.float32)
     )
     image = np.array(rgb_o)
     disparity: Float32[np.ndarray, "h w"] = relative_pred.disparity
@@ -294,6 +301,7 @@ def gradio_warped_image(
         sigma_list: list[float] = np.load("data/sigmas/sigmas_100.npy").tolist()
     lambda_ts: Float64[torch.Tensor, "n b"] = search_hypers(sigma_list)
 
+    # to allow logging from a separate thread
     handle = threading.Thread(
         target=svd_render_threaded,
         kwargs={
@@ -320,7 +328,8 @@ def gradio_warped_image(
                         rr.set_time_sequence(timeline, time)
                     else:
                         rr.set_time_seconds(timeline, time)
-                rr.log(entity_path, entity, static=True)
+                static = True if entity_path == "latents" else False
+                rr.log(entity_path, entity, static=static)
                 yield stream.read(), None
             case _:
                 assert_never(msg)
@@ -430,13 +439,9 @@ with gr.Blocks() as demo:
             with gr.Tab(label="Settings"):
                 with gr.Column():
                     warp_img_btn = gr.Button("Warp Images")
-                    save_path = gr.Textbox(
-                        label="Data Save Path",
-                        value="data/gradio_outputs",
-                    )
                     num_iters = gr.Radio(
-                        choices=[25, 50, 100],
-                        value=25,
+                        choices=[2, 25, 50, 100],
+                        value=2,
                         label="Number of iterations",
                         type="value",
                     )
@@ -465,7 +470,7 @@ with gr.Blocks() as demo:
 
     warp_img_btn.click(
         gradio_warped_image,
-        inputs=[img, num_iters, cam_direction, degrees_per_frame, save_path],
+        inputs=[img, num_iters, cam_direction, degrees_per_frame],
         outputs=[viewer, video_output],
     )
 

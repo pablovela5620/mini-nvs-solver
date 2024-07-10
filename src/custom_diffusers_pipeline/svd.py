@@ -592,15 +592,26 @@ class StableVideoDiffusionPipeline(DiffusionPipeline):
                 if i == len(timesteps) - 1 or (
                     (i + 1) > num_warmup_steps and (i + 1) % self.scheduler.order == 0
                 ):
-                    log_queue.put(
-                        (
-                            "latents",
-                            rr.Tensor(latents),
-                            [
-                                ("iteration", i),
-                            ],
+                    if log_queue is not None:
+                        # put latents tensor
+                        log_queue.put(
+                            (
+                                "latents",
+                                rr.Tensor(latents),
+                                [
+                                    ("iteration", i),
+                                ],
+                            )
                         )
-                    )
+                        log_queue.put(
+                            (
+                                "diffusion_step",
+                                rr.TextLog(f"Diffusion step {i}"),
+                                [
+                                    ("iteration", i),
+                                ],
+                            ),
+                        )
                     progress_bar.update()
 
         if not output_type == "latent":

@@ -398,6 +398,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/8f/8e/9ad090d3553c280a8060fbf6e24dc1c0c29704ee7d1c372f0c174aa59285/matplotlib_inline-0.1.7-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/59/bd/5d468c171f201d6169bec848d1116e95736854eec72307299bc68939fe45/mmcv_lite-2.2.0-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/0b/03/e8a1da1e73d6d9ba3ada49780c0c27afcea4607539ccf9a4be75e2b08533/mmengine-0.10.4-py3-none-any.whl
+      - pypi: direct+https://test-files.pythonhosted.org/packages/8e/c1/f02361c406ab5e780aade6e6285ce30e1c99ad71633281286092d24e4bcf/monopriors-0.1.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/a9/82/0340caa499416c78e5d8f5f05947ae4bc3cba53c9f038ab6e9ed964e22f1/nbformat-5.10.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/a0/c4/c2971a3ba4c6103a3d10c4b0f24f461ddc027f0f09763220cf35ca1401b3/nest_asyncio-1.6.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/37/6d/121efd7382d5b0284239f4ab1fc1590d86d34ed4a4a2fdb13b30ca8e5740/nvidia_cublas_cu12-12.1.3.1-py3-none-manylinux1_x86_64.whl
@@ -841,6 +842,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/8f/8e/9ad090d3553c280a8060fbf6e24dc1c0c29704ee7d1c372f0c174aa59285/matplotlib_inline-0.1.7-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/59/bd/5d468c171f201d6169bec848d1116e95736854eec72307299bc68939fe45/mmcv_lite-2.2.0-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/0b/03/e8a1da1e73d6d9ba3ada49780c0c27afcea4607539ccf9a4be75e2b08533/mmengine-0.10.4-py3-none-any.whl
+      - pypi: direct+https://test-files.pythonhosted.org/packages/8e/c1/f02361c406ab5e780aade6e6285ce30e1c99ad71633281286092d24e4bcf/monopriors-0.1.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/a9/82/0340caa499416c78e5d8f5f05947ae4bc3cba53c9f038ab6e9ed964e22f1/nbformat-5.10.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/a0/c4/c2971a3ba4c6103a3d10c4b0f24f461ddc027f0f09763220cf35ca1401b3/nest_asyncio-1.6.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/37/6d/121efd7382d5b0284239f4ab1fc1590d86d34ed4a4a2fdb13b30ca8e5740/nvidia_cublas_cu12-12.1.3.1-py3-none-manylinux1_x86_64.whl
@@ -5550,19 +5552,7 @@ packages:
   name: mini-nvs-solver
   version: 0.1.0
   path: .
-  sha256: d67f423e86f47c91b266c2cf3af192d765fcf32c3d8dfdb19d10bdfac668711d
-  requires_dist:
-  - huggingface-hub
-  - opencv-python
-  - geffnet
-  - calibur==0.0.1
-  - omnidata-tools
-  - open3d
-  - gradio-imageslider
-  - gradio
-  - gradio-rerun>=0.0.3
-  - hf-transfer
-  - mmcv-lite
+  sha256: 8cb8f810bbf395033efcac63f0af28ac1e1d3f20e4096f65987ff4270c31b8cf
   requires_python: '>=3.11'
   editable: true
 - kind: conda
@@ -5682,6 +5672,23 @@ packages:
   - transformers ; extra == 'tests'
   - aim<=3.17.5 ; sys_platform != 'win32' and extra == 'tests'
   requires_python: '>=3.7'
+- kind: pypi
+  name: monopriors
+  version: 0.1.2
+  url: direct+https://test-files.pythonhosted.org/packages/8e/c1/f02361c406ab5e780aade6e6285ce30e1c99ad71633281286092d24e4bcf/monopriors-0.1.2-py3-none-any.whl
+  requires_dist:
+  - huggingface-hub>=0.23.3
+  - opencv-python>=4.10.0.82
+  - geffnet>=1.0.2
+  - calibur==0.0.1
+  - omnidata-tools>=0.0.23
+  - open3d>=0.18.0
+  - gradio-imageslider>=0.0.20
+  - gradio>=4.36.1
+  - gradio-rerun==0.0.3
+  - hf-transfer>=0.1.6
+  - mmcv-lite>=2.2.0
+  requires_python: '>=3.10.0'
 - kind: conda
   name: mpc
   version: 1.3.1

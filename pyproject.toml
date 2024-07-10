@@ -4,20 +4,7 @@ version = "0.1.0"
 description = "Add a short description here"
 authors = [{ name = "Pablo Vela", email = "pablovela5620@gmail.com" }]
 requires-python = ">= 3.11"
-dependencies = [
-    "huggingface-hub",
-    "opencv-python",
-    "geffnet",
-    "calibur == 0.0.1",
-    "omnidata-tools",
-    "open3d",
-    "gradio-imageslider",
-    "gradio",
-    "gradio-rerun>= 0.0.3",
-    "hf-transfer",
-    "mmcv-lite",
-
-]
+dependencies = []
 
 [build-system]
 requires = ["setuptools"]
@@ -64,6 +51,7 @@ description = "Runs Gradio frontend for depth comparison"
 depends_on = ["_install-wheel"]
 
 [tool.pixi.pypi-dependencies]
+monopriors = { url = "https://test-files.pythonhosted.org/packages/8e/c1/f02361c406ab5e780aade6e6285ce30e1c99ad71633281286092d24e4bcf/monopriors-0.1.2-py3-none-any.whl" }
 src = { path = ".", editable = true }
 
 [tool.pixi.dependencies]
