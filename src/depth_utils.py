@@ -1,6 +1,74 @@
-from jaxtyping import Float32, Int64, Bool
+from jaxtyping import Float32, Int64, Bool, UInt8
+from src.camera_parameters import Intrinsics, PinholeParameters, rescale_intri
+from monopriors.relative_depth_models import (
+    RelativeDepthPrediction,
+    BaseRelativePredictor,
+)
 import numpy as np
+import trimesh
 from einops import rearrange
+import mmcv
+
+
+def image_to_depth(
+    rgb_np_original: UInt8[np.ndarray, "original_h original_w 3"],
+    rgb_np_hw3: UInt8[np.ndarray, "h w 3"],
+    cam_params: PinholeParameters,
+    near: float,
+    far: float,
+    depth_predictor: BaseRelativePredictor,
+):
+    original_height, original_width, _ = rgb_np_original.shape
+    new_height, new_width, _ = rgb_np_hw3.shape
+    # resize the K matrix from SVD to original image dimensions
+    original_intrinsics: Intrinsics = rescale_intri(
+        cam_params.intrinsics,
+        target_width=original_width,
+        target_height=original_height,
+    )
+    relative_pred: RelativeDepthPrediction = depth_predictor.__call__(
+        rgb_np_original, K_33=original_intrinsics.k_matrix.astype(np.float32)
+    )
+    disparity: Float32[np.ndarray, "original_h original_w"] = relative_pred.disparity
+    disparity[disparity < 1e-5] = 1e-5
+    depth: Float32[np.ndarray, "original_h original_w"] = 10000.0 / disparity
+    depth: Float32[np.ndarray, "original_h original_w"] = np.clip(depth, near, far)
+
+    # Resize the depth map to the Stable Diffusion Video dimensions
+    depth_resized: Float32[np.ndarray, "h w"] = mmcv.imresize(
+        depth, (new_width, new_height), interpolation="bilinear"
+    )
+
+    depth_1hw_resized: Float32[np.ndarray, "1 h w"] = rearrange(
+        depth_resized, "h w -> 1 h w"
+    )
+    pts_3d_resized: Float32[np.ndarray, "h w 3"] = depth_to_points(
+        depth_1hw_resized,
+        cam_params.intrinsics.k_matrix.astype(np.float32),
+        R=cam_params.extrinsics.cam_R_world.astype(np.float32),
+        t=cam_params.extrinsics.cam_t_world.astype(np.float32),
+    )
+
+    trimesh_pc_resized = trimesh.PointCloud(
+        vertices=pts_3d_resized.reshape(-1, 3), colors=rgb_np_hw3.reshape(-1, 3)
+    )
+
+    depth_1hw: Float32[np.ndarray, "1 original_h original_w"] = rearrange(
+        depth, "original_h original_w -> 1 original_h original_w"
+    )
+
+    pts_3d: Float32[np.ndarray, "original_h original_w 3"] = depth_to_points(
+        depth_1hw,
+        original_intrinsics.k_matrix.astype(np.float32),
+        R=cam_params.extrinsics.cam_R_world.astype(np.float32),
+        t=cam_params.extrinsics.cam_t_world.astype(np.float32),
+    )
+
+    trimesh_pc_original = trimesh.PointCloud(
+        vertices=pts_3d.reshape(-1, 3), colors=rgb_np_original.reshape(-1, 3)
+    )
+
+    return depth_resized, trimesh_pc_resized, depth, trimesh_pc_original
 
 
 def depth_to_points(
