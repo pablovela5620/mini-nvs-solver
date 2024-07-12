@@ -104,3 +104,31 @@ class PinholeParameters:
         self.projection_matrix = (
             self.intrinsics.k_matrix @ self.extrinsics.cam_T_world[:3, :]
         )
+
+
+def rescale_intri(
+    camera_intrinsics: Intrinsics, *, target_width: int, target_height: int
+) -> Intrinsics:
+    """
+    Rescales the input image and intrinsic matrix by a given scale factor.
+
+    Args:
+        cam (PinholeCameraParameter): The pinhole camera parameter.
+
+    Returns:
+        : The rescaled image frame and intrinsic matrix.
+    """
+    x_scale: float = target_width / camera_intrinsics.width
+    y_scale: float = target_height / camera_intrinsics.height
+
+    rescaled_intri = Intrinsics(
+        camera_conventions=camera_intrinsics.camera_conventions,
+        fl_x=camera_intrinsics.fl_x * x_scale,
+        fl_y=camera_intrinsics.fl_y * y_scale,
+        cx=camera_intrinsics.cx * x_scale,
+        cy=camera_intrinsics.cy * y_scale,
+        height=target_height,
+        width=target_width,
+    )
+
+    return rescaled_intri
