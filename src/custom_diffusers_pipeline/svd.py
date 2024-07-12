@@ -318,7 +318,7 @@ class StableVideoDiffusionPipeline(DiffusionPipeline):
     def __call__(
         self,
         image: Union[PIL.Image.Image, List[PIL.Image.Image], torch.FloatTensor],
-        log_queue: SimpleQueue,
+        log_queue: SimpleQueue | None,
         temp_cond,
         mask,
         lambda_ts,
@@ -611,6 +611,12 @@ class StableVideoDiffusionPipeline(DiffusionPipeline):
                                     ("iteration", i),
                                 ],
                             ),
+                        )
+                    else:
+                        rr.log("latents", rr.Tensor(latents), static=True)
+                        rr.log(
+                            "diffusion_step",
+                            rr.TextLog(f"Diffusion step {i}"),
                         )
                     progress_bar.update()
 
