@@ -1,5 +1,7 @@
 import numpy as np
 from jaxtyping import Float64
+from src.camera_parameters import Intrinsics, Extrinsics, PinholeParameters
+from typing import Literal
 
 
 def normalize(v):
@@ -72,3 +74,42 @@ def generate_camera_poses_around_ellipse(
 
         poses.append(pose_matrix)
     return poses
+
+
+def generate_camera_parameters(
+    num_frames: int,
+    image_width: int,
+    image_height: int,
+    degrees_per_frame: int | float,
+    major_radius: float,
+    minor_radius: float,
+    direction: Literal["left", "right"] = "right",
+):
+    inverse = True if direction == "right" else False
+    cam_T_world_list: list[Float64[np.ndarray, "4 4"]] = (
+        generate_camera_poses_around_ellipse(
+            num_frames, degrees_per_frame, major_radius, minor_radius, inverse=inverse
+        )
+    )
+
+    intri = Intrinsics(
+        camera_conventions="RDF",
+        fl_x=260.0,
+        fl_y=260.0,
+        cx=image_width / 2,
+        cy=image_height / 2,
+        height=image_height,
+        width=image_width,
+    )
+
+    camera_list: list[PinholeParameters] = []
+    for id, cam_T_world_44 in enumerate(cam_T_world_list):
+        cam_R_world = cam_T_world_44[:3, :3]
+        cam_t_world = cam_T_world_44[:3, 3]
+        extri = Extrinsics(cam_R_world=cam_R_world, cam_t_world=cam_t_world)
+        pinhole_params = PinholeParameters(
+            name=f"camera_{id}", extrinsics=extri, intrinsics=intri
+        )
+        camera_list.append(pinhole_params)
+
+    return camera_list

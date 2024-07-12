@@ -1,30 +1,34 @@
-import cv2
 import torch
-import PIL.Image
+import cv2
 import numpy as np
 from pathlib import Path
 from typing import Literal, Final
 from jaxtyping import Float64, Float32, UInt8
-from src.pose_utils import generate_camera_poses_around_ellipse
-from src.image_warping import forward_warp
+from src.pose_utils import generate_camera_parameters
+from src.image_warping import image_depth_warping
 from src.sigma_utils import load_lambda_ts
-from src.camera_parameters import Intrinsics, Extrinsics, PinholeParameters
-from src.depth_utils import depth_to_points
+from src.camera_parameters import PinholeParameters, rescale_intri, Intrinsics
+from src.depth_utils import image_to_depth
+from src.rr_logging_utils import (
+    log_camera,
+    create_svd_blueprint,
+    create_nerfstudio_blueprint,
+)
 import rerun as rr
+import rerun.blueprint as rrb
 import PIL
+import PIL.Image
 from PIL.Image import Image
 from monopriors.relative_depth_models import (
     get_relative_predictor,
-    RelativeDepthPrediction,
     BaseRelativePredictor,
 )
 
-from queue import SimpleQueue
 from src.custom_diffusers_pipeline.svd import StableVideoDiffusionPipeline
 from src.custom_diffusers_pipeline.scheduler import EulerDiscreteScheduler
 
 import trimesh
-from einops import rearrange
+import calibur
 
 DepthAnythingV2Predictor: BaseRelativePredictor = get_relative_predictor(
     "DepthAnythingV2Predictor"
@@ -40,149 +44,82 @@ SVD_PIPE.scheduler = scheduler
 
 SVD_HEIGHT: Final[int] = 576
 SVD_WIDTH: Final[int] = 1024
+NEAR: Final[float] = 0.0001
+FAR: Final[float] = 500.0
 
 
-def generate_camera_parameters(
-    num_frames: int,
-    image_width: int,
-    image_height: int,
-    degrees_per_frame: int | float,
-    major_radius: float,
-    minor_radius: float,
-    direction: Literal["left", "right"] = "right",
-):
-    inverse = True if direction == "right" else False
-    cam_T_world_list: list[Float64[np.ndarray, "4 4"]] = (
-        generate_camera_poses_around_ellipse(
-            num_frames, degrees_per_frame, major_radius, minor_radius, inverse=inverse
-        )
-    )
-    near = 0.0001
-    far = 500.0
-
-    intri = Intrinsics(
-        camera_conventions="RDF",
-        fl_x=260.0,
-        fl_y=260.0,
-        cx=image_width / 2,
-        cy=image_height / 2,
-        height=image_height,
-        width=image_width,
-    )
-
-    camera_list: list[PinholeParameters] = []
-    for id, cam_T_world_44 in enumerate(cam_T_world_list):
-        cam_R_world = cam_T_world_44[:3, :3]
-        cam_t_world = cam_T_world_44[:3, 3]
-        extri = Extrinsics(cam_R_world=cam_R_world, cam_t_world=cam_t_world)
-        pinhole_params = PinholeParameters(
-            name=f"camera_{id}", extrinsics=extri, intrinsics=intri
-        )
-        camera_list.append(pinhole_params)
-
-    return camera_list, near, far
-
-
-def rescale_intri(
-    camera_intrinsics: Intrinsics, new_width: int, new_height: int
-) -> Intrinsics:
-    """
-    Rescales the input image and intrinsic matrix by a given scale factor.
-
-    Args:
-        cam (PinholeCameraParameter): The pinhole camera parameter.
-
-    Returns:
-        : The rescaled image frame and intrinsic matrix.
-    """
-    x_scale: float = new_width / camera_intrinsics.width
-    y_scale: float = new_height / camera_intrinsics.height
-    rescaled_intri = Intrinsics(
-        camera_conventions=camera_intrinsics.camera_conventions,
-        fl_x=camera_intrinsics.fl_x * x_scale,
-        fl_y=camera_intrinsics.fl_y * y_scale,
-        cx=camera_intrinsics.cx * x_scale,
-        cy=camera_intrinsics.cy * y_scale,
-        height=new_height,
-        width=new_width,
-    )
-
-    return rescaled_intri
-
-
-def image_to_depth(
+def to_nerfstudio_camera(
     rgb_np_original: UInt8[np.ndarray, "original_h original_w 3"],
-    rgb_np_hw3: UInt8[np.ndarray, "h w 3"],
-    cam_params: PinholeParameters,
-    near: float,
-    far: float,
+    frames: list[PIL.Image.Image],
+    trimesh_pc_original: trimesh.PointCloud,
+    camera_list: list[PinholeParameters],
 ):
-    original_width, original_height, _ = rgb_np_original.shape
-    # resize the K matrix from SVD to original image dimensions
-    resized_intrinsics: Intrinsics = rescale_intri(
-        cam_params.intrinsics, original_width, original_height
-    )
-    relative_pred: RelativeDepthPrediction = DepthAnythingV2Predictor.__call__(
-        rgb_np_original, K_33=resized_intrinsics.k_matrix.astype(np.float32)
-    )
-    disparity: Float32[np.ndarray, "original_h original_w"] = relative_pred.disparity
-    disparity[disparity < 1e-5] = 1e-5
-    depth: Float32[np.ndarray, "original_h original_w"] = 10000.0 / disparity
-    depth: Float32[np.ndarray, "original_h original_w"] = np.clip(depth, near, far)
-
-    # Resize the depth map to the Stable Diffusion Video dimensions
-    depth: Float32[np.ndarray, "h w"] = cv2.resize(
-        depth, (SVD_WIDTH, SVD_HEIGHT), interpolation=cv2.INTER_NEAREST
+    assert len(camera_list) == 25, "Not 25 frames"
+    # send a new blueprint for nerf studio
+    parent_log_path = Path("nerstudio")
+    blueprint = create_nerfstudio_blueprint(parent_log_path)
+    rr.send_blueprint(blueprint)
+    rr.log(f"{parent_log_path}", rr.ViewCoordinates.LDB, static=True)
+    rr.log(
+        f"{parent_log_path}/point_cloud",
+        rr.Points3D(
+            positions=trimesh_pc_original.vertices,
+            colors=trimesh_pc_original.colors,
+        ),
+        static=True,
     )
 
-    depth_1hw: Float32[np.ndarray, "1 h w"] = rearrange(depth, "h w -> 1 h w")
-    pts_3d: Float32[np.ndarray, "h w 3"] = depth_to_points(
-        depth_1hw,
-        cam_params.intrinsics.k_matrix.astype(np.float32),
-        R=cam_params.extrinsics.cam_R_world.astype(np.float32),
-        t=cam_params.extrinsics.cam_t_world.astype(np.float32),
-    )
+    # resize all frames to original size
+    original_height, original_width, _ = rgb_np_original.shape
+    frames: list[PIL.Image.Image] = [
+        frame.resize(
+            (original_width, original_height),
+            PIL.Image.Resampling.BILINEAR,
+        )
+        for frame in frames
+    ]
+    # add the original frame to the beginning
+    frames.insert(0, PIL.Image.fromarray(rgb_np_original))
 
-    trimesh_pointcloud = trimesh.PointCloud(
-        vertices=pts_3d.reshape(-1, 3), colors=rgb_np_hw3.reshape(-1, 3)
-    )
-
-    return depth, trimesh_pointcloud
-
-
-def image_depth_warping(image, depth, cam_T_world_44_s, cam_T_world_44_t, K):
-    warped_frame2, mask2, _ = forward_warp(
-        image, None, depth, cam_T_world_44_s, cam_T_world_44_t, K, None
-    )
-    mask = 1 - mask2
-    mask[mask < 0.5] = 0
-    mask[mask >= 0.5] = 1
-    mask: Float64[np.ndarray, "h w 3"] = np.repeat(
-        mask[:, :, np.newaxis] * 255.0, repeats=3, axis=2
-    )
-
-    kernel = np.ones((5, 5), np.uint8)
-    mask_erosion = cv2.dilate(np.array(mask), kernel, iterations=1)
-    mask_erosion = PIL.Image.fromarray(np.uint8(mask_erosion))
-
-    mask_erosion_ = np.array(mask_erosion) / 255.0
-    mask_erosion_[mask_erosion_ < 0.5] = 0
-    mask_erosion_[mask_erosion_ >= 0.5] = 1
-    warped_frame2 = PIL.Image.fromarray(np.uint8(warped_frame2))
-    # perform masking on the warped image
-    warped_frame2 = PIL.Image.fromarray(np.uint8(warped_frame2 * (1 - mask_erosion_)))
-
-    mask_erosion = np.mean(mask_erosion_, axis=-1)
-    mask_erosion = (
-        mask_erosion.reshape(72, 8, 128, 8).transpose(0, 2, 1, 3).reshape(72, 128, 64)
-    )
-    mask_erosion = np.mean(mask_erosion, axis=2)
-    mask_erosion[mask_erosion < 0.2] = 0
-    mask_erosion[mask_erosion >= 0.2] = 1
-    mask_erosion_tensor = torch.from_numpy(mask_erosion)
-    mask_erosion_tensor = rearrange(mask_erosion_tensor, "h w -> 1 h w")
-
-    return warped_frame2, mask_erosion_tensor
+    cam_log_path = parent_log_path / "original_camera"
+    for frame_id, (frame, cam_params) in enumerate(zip(frames, camera_list)):
+        rr.set_time_sequence("frame_id", frame_id)
+        original_intri = rescale_intri(
+            cam_params.intrinsics,
+            target_height=original_height,
+            target_width=original_width,
+        )
+        generated_rgb_np: UInt8[np.ndarray, "h w 3"] = np.array(frame)
+        # nerfstudio uses GL convention and cam to world
+        assert cam_params.intrinsics.camera_conventions == "RDF"
+        world_T_cam_44_cv = cam_params.extrinsics.world_T_cam
+        world_T_cam_44_gl = calibur.convert_pose(
+            world_T_cam_44_cv,
+            src_convention=calibur.CC.CV,
+            dst_convention=calibur.CC.GL,
+        )
+        pinhole_log_path: Path = cam_log_path / "pinhole"
+        rr.log(
+            f"{cam_log_path}",
+            rr.Transform3D(
+                mat3x3=world_T_cam_44_gl[:3, :3],
+                translation=world_T_cam_44_gl[:3, 3],
+                from_parent=False,
+            ),
+        )
+        rr.log(
+            f"{pinhole_log_path}",
+            rr.Pinhole(
+                image_from_camera=original_intri.k_matrix,
+                width=original_intri.width,
+                height=original_intri.height,
+                camera_xyz=rr.ViewCoordinates.RUB,
+            ),
+        )
+        rr.log(
+            f"{pinhole_log_path}/rgb",
+            rr.Image(generated_rgb_np).compress(jpeg_quality=80),
+        )
 
 
 def nvs_solver_inference(
@@ -201,9 +138,11 @@ def nvs_solver_inference(
     # setup rerun logging
     parent_log_path = Path("world")
     rr.log(f"{parent_log_path}", rr.ViewCoordinates.LDB, static=True)
+    blueprint: rrb.Blueprint = create_svd_blueprint(parent_log_path)
+    rr.send_blueprint(blueprint)
 
     # generate initial camera parameters for video trajectory
-    camera_list, near, far = generate_camera_parameters(
+    camera_list: list[PinholeParameters] = generate_camera_parameters(
         num_frames=num_frames,
         image_width=SVD_WIDTH,
         image_height=SVD_HEIGHT,
@@ -222,25 +161,21 @@ def nvs_solver_inference(
     rgb_np_original: UInt8[np.ndarray, "h w 3"] = np.array(rgb_original)
     rgb_np_hw3: UInt8[np.ndarray, "h w 3"] = np.array(rgb_resized)
 
+    original_height, original_width, _ = rgb_np_original.shape
+
     # Estimate depth map and pointcloud for the input image
     depth: Float32[np.ndarray, "h w"]
-    trimesh_pointcloud: trimesh.PointCloud
+    trimesh_pc: trimesh.PointCloud
+    depth_original: Float32[np.ndarray, "original_h original_w"]
+    trimesh_pc_original: trimesh.PointCloud
 
-    depth, trimesh_pointcloud = image_to_depth(
+    depth, trimesh_pc, depth_original, trimesh_pc_original = image_to_depth(
         rgb_np_original=rgb_np_original,
         rgb_np_hw3=rgb_np_hw3,
         cam_params=camera_list[0],
-        near=near,
-        far=far,
-    )
-
-    rr.log(
-        f"{parent_log_path}/point_cloud",
-        rr.Points3D(
-            positions=trimesh_pointcloud.vertices,
-            colors=trimesh_pointcloud.colors,
-        ),
-        static=True,
+        near=NEAR,
+        far=FAR,
+        depth_predictor=DepthAnythingV2Predictor,
     )
     start_cam: PinholeParameters = camera_list[0]
     cond_image: list[PIL.Image.Image] = []
@@ -285,7 +220,7 @@ def nvs_solver_inference(
     ).frames[0]
 
     # all frames but the first one
-    frame: PIL.Image.Image
+    frame: np.ndarray
     for frame_id, (frame, cam_pararms) in enumerate(zip(frames, camera_list[1:])):
         # add one since the first frame is the original image
         rr.set_time_sequence("frame_id", frame_id + 1)
@@ -293,34 +228,4 @@ def nvs_solver_inference(
         generated_rgb_np: UInt8[np.ndarray, "h w 3"] = np.array(frame)
         log_camera(cam_log_path, cam_pararms, generated_rgb_np, depth=None)
 
-
-def log_camera(
-    cam_log_path: Path,
-    cam: PinholeParameters,
-    rgb_np_hw3: UInt8[np.ndarray, "h w 3"],
-    depth: Float32[np.ndarray, "h w"] | None = None,
-) -> None:
-    pinhole_log_path: Path = cam_log_path / "pinhole"
-    rr.log(
-        f"{cam_log_path}",
-        rr.Transform3D(
-            mat3x3=cam.extrinsics.cam_R_world,
-            translation=cam.extrinsics.cam_t_world,
-            from_parent=True,
-        ),
-    )
-    rr.log(
-        f"{pinhole_log_path}",
-        rr.Pinhole(
-            image_from_camera=cam.intrinsics.k_matrix,
-            width=cam.intrinsics.width,
-            height=cam.intrinsics.height,
-            camera_xyz=rr.ViewCoordinates.RDF,
-        ),
-    )
-    rr.log(f"{pinhole_log_path}/rgb", rr.Image(rgb_np_hw3).compress(jpeg_quality=80))
-    if depth is not None:
-        rr.log(
-            f"{pinhole_log_path}/depth",
-            rr.DepthImage(depth),
-        )
+    to_nerfstudio_camera(rgb_np_original, frames, trimesh_pc_original, camera_list)

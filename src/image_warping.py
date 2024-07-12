@@ -1,5 +1,52 @@
+import cv2
+import torch
+import PIL
+from PIL.Image import Image
 import numpy as np
 from typing import Optional, Tuple
+from einops import rearrange
+from jaxtyping import Float64, UInt8, Float32
+
+
+def image_depth_warping(
+    image: UInt8[np.ndarray, "h w 3"],
+    depth: Float32[np.ndarray, "h w"],
+    cam_T_world_44_s: Float64[np.ndarray, "4 4"],
+    cam_T_world_44_t: Float64[np.ndarray, "4 4"],
+    K: Float64[np.ndarray, "3 3"],
+) -> tuple[Image, Float64[torch.Tensor, "1 72 128"]]:
+    warped_frame2, mask2, _ = forward_warp(
+        image, None, depth, cam_T_world_44_s, cam_T_world_44_t, K, None
+    )
+    mask = 1 - mask2
+    mask[mask < 0.5] = 0
+    mask[mask >= 0.5] = 1
+    mask: Float64[np.ndarray, "h w 3"] = np.repeat(
+        mask[:, :, np.newaxis] * 255.0, repeats=3, axis=2
+    )
+
+    kernel = np.ones((5, 5), np.uint8)
+    mask_erosion = cv2.dilate(np.array(mask), kernel, iterations=1)
+    mask_erosion = PIL.Image.fromarray(np.uint8(mask_erosion))
+
+    mask_erosion_ = np.array(mask_erosion) / 255.0
+    mask_erosion_[mask_erosion_ < 0.5] = 0
+    mask_erosion_[mask_erosion_ >= 0.5] = 1
+    warped_frame2 = PIL.Image.fromarray(np.uint8(warped_frame2))
+    # perform masking on the warped image
+    warped_frame2 = PIL.Image.fromarray(np.uint8(warped_frame2 * (1 - mask_erosion_)))
+
+    mask_erosion = np.mean(mask_erosion_, axis=-1)
+    mask_erosion = (
+        mask_erosion.reshape(72, 8, 128, 8).transpose(0, 2, 1, 3).reshape(72, 128, 64)
+    )
+    mask_erosion = np.mean(mask_erosion, axis=2)
+    mask_erosion[mask_erosion < 0.2] = 0
+    mask_erosion[mask_erosion >= 0.2] = 1
+    mask_erosion_tensor = torch.from_numpy(mask_erosion)
+    mask_erosion_tensor = rearrange(mask_erosion_tensor, "h w -> 1 h w")
+
+    return warped_frame2, mask_erosion_tensor
 
 
 def forward_warp(
