@@ -87,6 +87,13 @@ class Intrinsics:
             [[self.fl_x, 0, self.cx], [0, self.fl_y, self.cy], [0, 0, 1]]
         )
 
+    def __repr__(self):
+        return (
+            f"Intrinsics(camera_conventions={self.camera_conventions}, "
+            f"fl_x={self.fl_x}, fl_y={self.fl_y}, cx={self.cx}, cy={self.cy}, "
+            f"height={self.height}, width={self.width})"
+        )
+
 
 @dataclass
 class PinholeParameters:
@@ -121,10 +128,13 @@ def rescale_intri(
     x_scale: float = target_width / camera_intrinsics.width
     y_scale: float = target_height / camera_intrinsics.height
 
+    # assume the focal length is the same for x and y
+    focal = camera_intrinsics.fl_y * y_scale
+
     rescaled_intri = Intrinsics(
         camera_conventions=camera_intrinsics.camera_conventions,
-        fl_x=camera_intrinsics.fl_x * x_scale,
-        fl_y=camera_intrinsics.fl_y * y_scale,
+        fl_x=focal,
+        fl_y=focal,
         cx=camera_intrinsics.cx * x_scale,
         cy=camera_intrinsics.cy * y_scale,
         height=target_height,
