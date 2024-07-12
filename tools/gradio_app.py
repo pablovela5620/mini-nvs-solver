@@ -63,7 +63,7 @@ def svd_render_threaded(
     masks: Float64[torch.Tensor, "b 72 128"],
     cond_image: PIL.Image.Image,
     lambda_ts: Float64[torch.Tensor, "n b"],
-    num_denoise_iters: Literal[25, 50, 100],
+    num_denoise_iters: Literal[2, 25, 50, 100],
     weight_clamp: float,
     log_queue: SimpleQueue | None = None,
 ):
@@ -165,7 +165,7 @@ def gradio_warped_image(
     rr.log(f"{cam_log_path}/image/rgb", rr.Image(rgb_o).compress(jpeg_quality=80))
 
     relative_pred: RelativeDepthPrediction = DepthAnythingV2Predictor.__call__(
-        np.array(PIL.Image.open(image_path))  # , K_33=K.astype(np.float32)
+        np.array(PIL.Image.open(image_path)), K_33=K.astype(np.float32)
     )
     image = np.array(rgb_o)
     disparity: Float32[np.ndarray, "h w"] = relative_pred.disparity
@@ -299,6 +299,10 @@ def gradio_warped_image(
         sigma_list: list[float] = np.load("data/sigmas/sigmas_50.npy").tolist()
     elif num_denoise_iters == 100:
         sigma_list: list[float] = np.load("data/sigmas/sigmas_100.npy").tolist()
+    else:
+        # for debugging only
+        sigma_list: list[float] = np.load("data/sigmas/sigmas_25.npy").tolist()
+
     lambda_ts: Float64[torch.Tensor, "n b"] = search_hypers(sigma_list)
 
     # to allow logging from a separate thread
