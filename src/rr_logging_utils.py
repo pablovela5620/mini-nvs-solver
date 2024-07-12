@@ -39,42 +39,36 @@ def log_camera(
 
 
 def create_svd_blueprint(parent_log_path: Path) -> rrb.Blueprint:
+    nerfstudio_path = Path("nerfstudio")
     blueprint = rrb.Blueprint(
         rrb.Horizontal(
-            rrb.Spatial3DView(
-                origin=f"{parent_log_path}",
+            rrb.Vertical(
+                rrb.Spatial3DView(
+                    origin=f"{parent_log_path}",
+                ),
+                rrb.Spatial3DView(
+                    origin=f"{nerfstudio_path}",
+                ),
             ),
             rrb.TextLogView(origin="diffusion_step"),
             rrb.Vertical(
                 rrb.Spatial2DView(
-                    origin=f"{parent_log_path}/warped_camera/pinhole/rgb",
-                ),
-                rrb.Spatial2DView(
-                    origin=f"{parent_log_path}/generated_camera/pinhole/rgb",
-                ),
-            ),
-            rrb.Vertical(
-                rrb.Spatial2DView(
-                    origin=f"{parent_log_path}/original_camera/pinhole",
+                    origin=f"{parent_log_path}/warped_camera/pinhole",
                     contents=[
                         "+ $origin/**",
                     ],
                 ),
+                rrb.Spatial2DView(
+                    origin=f"{nerfstudio_path}/original_resolution_camera/pinhole/rgb",
+                ),
+            ),
+            rrb.Vertical(
+                rrb.Spatial2DView(
+                    origin=f"{parent_log_path}/generated_camera/pinhole/rgb",
+                ),
                 rrb.TensorView(origin="latents"),
             ),
             column_shares=[5, 1.5, 2, 2],
-        ),
-        collapse_panels=True,
-    )
-    return blueprint
-
-
-def create_nerfstudio_blueprint(parent_log_path: Path) -> rrb.Blueprint:
-    blueprint = rrb.Blueprint(
-        rrb.Horizontal(
-            rrb.Spatial3DView(
-                origin=f"{parent_log_path}",
-            ),
         ),
         collapse_panels=True,
     )

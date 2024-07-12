@@ -17,6 +17,11 @@ if __name__ == "__main__":
         type=int,
         default=2,
     )
+    parser.add_argument(
+        "--save-path",
+        type=Path,
+        help="Output Path",
+    )
     rr.script_add_args(parser)
     args = parser.parse_args()
     rr.script_setup(args, "nvs_solver")
@@ -24,9 +29,10 @@ if __name__ == "__main__":
         image_path=args.image_path,
         num_denoise_iters=args.num_denoising_iterations,
         direction="right",
-        degrees_per_frame=0.25,
+        degrees_per_frame=0.5,
         major_radius=60.0,
         minor_radius=70.0,
         num_frames=25,
+        save_path=args.save_path,
     )
     rr.script_teardown(args)
