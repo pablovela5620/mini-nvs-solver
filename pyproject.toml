@@ -43,6 +43,12 @@ cmd = """
     """
 description = "Runs Gradio frontend for hotreload"
 
+[tool.pixi.tasks.rerun-demo]
+cmd = """
+    python tools/rerun_demo.py --headless --connect
+    """
+description = "Runs Rerun demo"
+
 [tool.pixi.feature.spaces.tasks.app]
 cmd = """
     PYTORCH_JIT=0 python gradio_app.py
@@ -72,6 +78,7 @@ diffusers = ">=0.29.2,<0.30"
 accelerate = ">=0.32.0,<0.33"
 pyserde = ">=0.19.3,<0.20"
 trimesh = ">=4.4.1,<4.5"
+icecream = ">=2.1.3,<2.2"
 
 [tool.pixi.feature.spaces.pypi-dependencies]
 spaces = "*"

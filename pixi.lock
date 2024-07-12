@@ -19,6 +19,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/annotated-types-0.7.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/anyio-4.4.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/aom-3.9.1-hac33072_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/asttokens-2.4.1-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/attrs-23.2.0-pyh71513ae_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/aws-c-auth-0.7.22-heee8711_7.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/aws-c-cal-0.7.0-h816f305_0.conda
@@ -97,6 +98,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/email-validator-2.2.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/email_validator-2.2.0-hd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/exceptiongroup-1.2.0-pyhd8ed1ab_2.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/executing-2.0.1-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/expat-2.6.2-h59595ed_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/fastapi-0.111.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/fastapi-cli-0.0.4-pyhd8ed1ab_0.conda
@@ -134,6 +136,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/httpx-0.27.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/huggingface_hub-0.23.4-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/hyperframe-6.0.1-pyhd8ed1ab_0.tar.bz2
+      - conda: https://conda.anaconda.org/conda-forge/noarch/icecream-2.1.3-pyhd8ed1ab_0.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/linux-64/icu-73.2-h59595ed_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/idna-3.7-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/importlib-metadata-8.0.0-pyha770c72_0.conda
@@ -369,7 +372,6 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/3b/00/2344469e2084fb287c2e0b57b72910309874c3245463acd6cf5e3db69324/appdirs-1.4.4-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/9a/56/a1ba3e0fe737b9b20a45c10266ab88a0f44e5779fa751a7484259d8845ea/aria2p-0.12.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/35/bf/9cad857b630c840738003eb24c1adb63490a1024ec40a9dcc3a753300c38/asciimatics-1.15.0-py3-none-any.whl
-      - pypi: https://files.pythonhosted.org/packages/45/86/4736ac618d82a20d87d2f92ae19441ebc7ac9e7a581d7e58bbe79233b24a/asttokens-2.4.1-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/bb/2a/10164ed1f31196a2f7f3799368a821765c62851ead0e630ab52b8e14b4d0/blinker-1.8.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ba/d6/b3046c86cdbb32084b94bbf4324d47acc9991419c2775dc4038fff19950e/calibur-0.0.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/e6/75/49e5bfe642f71f272236b5b2d2691cf915a7283cc0ceda56357b61daa538/comm-0.2.2-py3-none-any.whl
@@ -379,7 +381,6 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/75/65/1b16b853844ef59b2742a7de74a598f376ac0ab581f0dcc34db294e5c90e/dash_html_components-2.0.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/da/ce/43f77dc8e7bbad02a9f88d07bf794eaf68359df756a28bb9f2f78e255bb1/dash_table-5.0.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/d5/50/83c593b07763e1161326b3b8c6686f0f4b0f24d5526546bee538c89837d6/decorator-5.1.1-py3-none-any.whl
-      - pypi: https://files.pythonhosted.org/packages/80/03/6ea8b1b2a5ab40a7a60dc464d3daa7aa546e0a74d74a9f8ff551ea7905db/executing-2.0.1-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/9c/a5/324496893725a86d2c6021b8a717e0d053b20eba2693fd5a1aa2419edcbf/fastcore-1.5.48-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/6d/ca/086311cdfc017ec964b2436fe0c98c1f4efcb7e4c328956a22456e497655/fastjsonschema-2.20.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/61/80/ffe1da13ad9300f87c93af113edd0638c75138c42a0994becfacac078c06/flask-3.0.3-py3-none-any.whl
@@ -463,6 +464,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/annotated-types-0.7.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/anyio-4.4.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/aom-3.9.1-hac33072_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/asttokens-2.4.1-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/attrs-23.2.0-pyh71513ae_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/aws-c-auth-0.7.22-heee8711_7.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/aws-c-cal-0.7.0-h816f305_0.conda
@@ -541,6 +543,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/email-validator-2.2.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/email_validator-2.2.0-hd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/exceptiongroup-1.2.0-pyhd8ed1ab_2.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/executing-2.0.1-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/expat-2.6.2-h59595ed_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/fastapi-0.111.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/fastapi-cli-0.0.4-pyhd8ed1ab_0.conda
@@ -578,6 +581,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/httpx-0.27.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/huggingface_hub-0.23.4-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/hyperframe-6.0.1-pyhd8ed1ab_0.tar.bz2
+      - conda: https://conda.anaconda.org/conda-forge/noarch/icecream-2.1.3-pyhd8ed1ab_0.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/linux-64/icu-73.2-h59595ed_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/idna-3.7-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/importlib-metadata-8.0.0-pyha770c72_0.conda
@@ -813,7 +817,6 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/3b/00/2344469e2084fb287c2e0b57b72910309874c3245463acd6cf5e3db69324/appdirs-1.4.4-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/9a/56/a1ba3e0fe737b9b20a45c10266ab88a0f44e5779fa751a7484259d8845ea/aria2p-0.12.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/35/bf/9cad857b630c840738003eb24c1adb63490a1024ec40a9dcc3a753300c38/asciimatics-1.15.0-py3-none-any.whl
-      - pypi: https://files.pythonhosted.org/packages/45/86/4736ac618d82a20d87d2f92ae19441ebc7ac9e7a581d7e58bbe79233b24a/asttokens-2.4.1-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/bb/2a/10164ed1f31196a2f7f3799368a821765c62851ead0e630ab52b8e14b4d0/blinker-1.8.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ba/d6/b3046c86cdbb32084b94bbf4324d47acc9991419c2775dc4038fff19950e/calibur-0.0.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/e6/75/49e5bfe642f71f272236b5b2d2691cf915a7283cc0ceda56357b61daa538/comm-0.2.2-py3-none-any.whl
@@ -823,7 +826,6 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/75/65/1b16b853844ef59b2742a7de74a598f376ac0ab581f0dcc34db294e5c90e/dash_html_components-2.0.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/da/ce/43f77dc8e7bbad02a9f88d07bf794eaf68359df756a28bb9f2f78e255bb1/dash_table-5.0.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/d5/50/83c593b07763e1161326b3b8c6686f0f4b0f24d5526546bee538c89837d6/decorator-5.1.1-py3-none-any.whl
-      - pypi: https://files.pythonhosted.org/packages/80/03/6ea8b1b2a5ab40a7a60dc464d3daa7aa546e0a74d74a9f8ff551ea7905db/executing-2.0.1-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/9c/a5/324496893725a86d2c6021b8a717e0d053b20eba2693fd5a1aa2419edcbf/fastcore-1.5.48-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/6d/ca/086311cdfc017ec964b2436fe0c98c1f4efcb7e4c328956a22456e497655/fastjsonschema-2.20.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/61/80/ffe1da13ad9300f87c93af113edd0638c75138c42a0994becfacac078c06/flask-3.0.3-py3-none-any.whl
@@ -1118,19 +1120,24 @@ packages:
   - wcwidth
   - pywin32 ; sys_platform == 'win32'
   requires_python: '>=3.8'
-- kind: pypi
+- kind: conda
   name: asttokens
   version: 2.4.1
-  url: https://files.pythonhosted.org/packages/45/86/4736ac618d82a20d87d2f92ae19441ebc7ac9e7a581d7e58bbe79233b24a/asttokens-2.4.1-py2.py3-none-any.whl
-  sha256: 051ed49c3dcae8913ea7cd08e46a606dba30b79993209636c4875bc1d637bc24
-  requires_dist:
-  - six>=1.12.0
-  - typing ; python_version < '3.5'
-  - astroid<2,>=1 ; python_version < '3' and extra == 'astroid'
-  - astroid<4,>=2 ; python_version >= '3' and extra == 'astroid'
-  - pytest ; extra == 'test'
-  - astroid<2,>=1 ; python_version < '3' and extra == 'test'
-  - astroid<4,>=2 ; python_version >= '3' and extra == 'test'
+  build: pyhd8ed1ab_0
+  subdir: noarch
+  noarch: python
+  url: https://conda.anaconda.org/conda-forge/noarch/asttokens-2.4.1-pyhd8ed1ab_0.conda
+  sha256: 708168f026df19a0344983754d27d1f7b28bb21afc7b97a82f02c4798a3d2111
+  md5: 5f25798dcefd8252ce5f9dc494d5f571
+  depends:
+  - python >=3.5
+  - six >=1.12.0
+  license: Apache-2.0
+  license_family: Apache
+  purls:
+  - pkg:pypi/asttokens?source=conda-forge-mapping
+  size: 28922
+  timestamp: 1698341257884
 - kind: conda
   name: attrs
   version: 23.2.0
@@ -2573,20 +2580,23 @@ packages:
   - pkg:pypi/exceptiongroup?source=conda-forge-mapping
   size: 20551
   timestamp: 1704921321122
-- kind: pypi
+- kind: conda
   name: executing
   version: 2.0.1
-  url: https://files.pythonhosted.org/packages/80/03/6ea8b1b2a5ab40a7a60dc464d3daa7aa546e0a74d74a9f8ff551ea7905db/executing-2.0.1-py2.py3-none-any.whl
-  sha256: eac49ca94516ccc753f9fb5ce82603156e590b27525a8bc32cce8ae302eb61bc
-  requires_dist:
-  - asttokens>=2.1.0 ; extra == 'tests'
-  - ipython ; extra == 'tests'
-  - pytest ; extra == 'tests'
-  - coverage ; extra == 'tests'
-  - coverage-enable-subprocess ; extra == 'tests'
-  - littleutils ; extra == 'tests'
-  - rich ; python_version >= '3.11' and extra == 'tests'
-  requires_python: '>=3.5'
+  build: pyhd8ed1ab_0
+  subdir: noarch
+  noarch: python
+  url: https://conda.anaconda.org/conda-forge/noarch/executing-2.0.1-pyhd8ed1ab_0.conda
+  sha256: c738804ab1e6376f8ea63372229a04c8d658dc90fd5a218c6273a2eaf02f4057
+  md5: e16be50e378d8a4533b989035b196ab8
+  depends:
+  - python >=2.7
+  license: MIT
+  license_family: MIT
+  purls:
+  - pkg:pypi/executing?source=conda-forge-mapping
+  size: 27689
+  timestamp: 1698580072627
 - kind: conda
   name: expat
   version: 2.6.2
@@ -3402,6 +3412,27 @@ packages:
   - pkg:pypi/hyperframe?source=conda-forge-mapping
   size: 14646
   timestamp: 1619110249723
+- kind: conda
+  name: icecream
+  version: 2.1.3
+  build: pyhd8ed1ab_0
+  subdir: noarch
+  noarch: python
+  url: https://conda.anaconda.org/conda-forge/noarch/icecream-2.1.3-pyhd8ed1ab_0.tar.bz2
+  sha256: c63d1f83d7b6577f38c28158533ef4d77c61756f20f7861aecd80136740d2ebb
+  md5: 6e9df79dc265bd348b831b41d6c1784d
+  depends:
+  - asttokens >=2.0.1
+  - colorama >=0.3.9
+  - executing >=0.3.1
+  - pygments >=2.2.0
+  - python >=2.7
+  license: MIT
+  license_family: MIT
+  purls:
+  - pkg:pypi/icecream?source=conda-forge-mapping
+  size: 12530
+  timestamp: 1658422260428
 - kind: conda
   name: icu
   version: '73.2'
@@ -5552,7 +5583,7 @@ packages:
   name: mini-nvs-solver
   version: 0.1.0
   path: .
-  sha256: 8cb8f810bbf395033efcac63f0af28ac1e1d3f20e4096f65987ff4270c31b8cf
+  sha256: a3d958959af573fb9cb84fce2aefc043aab0a8106a0a917a5bc32a889bd6e7a8
   requires_python: '>=3.11'
   editable: true
 - kind: conda
