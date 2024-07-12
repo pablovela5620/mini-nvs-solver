@@ -1,6 +1,10 @@
 import numpy as np
 from jaxtyping import Float64
-from src.camera_parameters import Intrinsics, Extrinsics, PinholeParameters
+from src.camera_parameters import (
+    Intrinsics,
+    Extrinsics,
+    PinholeParameters,
+)
 from typing import Literal
 
 
@@ -84,18 +88,18 @@ def generate_camera_parameters(
     major_radius: float,
     minor_radius: float,
     direction: Literal["left", "right"] = "right",
-):
+) -> list[PinholeParameters]:
     inverse = True if direction == "right" else False
     cam_T_world_list: list[Float64[np.ndarray, "4 4"]] = (
         generate_camera_poses_around_ellipse(
             num_frames, degrees_per_frame, major_radius, minor_radius, inverse=inverse
         )
     )
-
+    focal: float = 260.0
     intri = Intrinsics(
         camera_conventions="RDF",
-        fl_x=260.0,
-        fl_y=260.0,
+        fl_x=focal,
+        fl_y=focal,
         cx=image_width / 2,
         cy=image_height / 2,
         height=image_height,
