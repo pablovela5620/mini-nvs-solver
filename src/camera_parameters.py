@@ -129,7 +129,7 @@ def rescale_intri(
     y_scale: float = target_height / camera_intrinsics.height
 
     # assume the focal length is the same for x and y
-    focal = camera_intrinsics.fl_y * y_scale
+    focal: float = camera_intrinsics.fl_y * y_scale
 
     rescaled_intri = Intrinsics(
         camera_conventions=camera_intrinsics.camera_conventions,
