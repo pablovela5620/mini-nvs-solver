@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 import numpy as np
-from typing import Optional
 from jaxtyping import Float
+from typing import Literal
 
 
 @dataclass
@@ -16,10 +16,10 @@ class Distortion:
 @dataclass
 class Extrinsics:
     # Rotation and translation can be provided for both world-to-camera and camera-to-world transformations
-    world_R_cam: Optional[Float[np.ndarray, "3 3"]] = None
-    world_t_cam: Optional[Float[np.ndarray, "3"]] = None
-    cam_R_world: Optional[Float[np.ndarray, "3 3"]] = None
-    cam_t_world: Optional[Float[np.ndarray, "3"]] = None
+    world_R_cam: Float[np.ndarray, "3 3"] | None = None
+    world_t_cam: Float[np.ndarray, "3"] | None = None
+    cam_R_world: Float[np.ndarray, "3 3"] | None = None
+    cam_t_world: Float[np.ndarray, "3"] | None = None
     # The projection matrix and transformation matrices will be computed in post-init
     world_T_cam: Float[np.ndarray, "4 4"] = field(init=False)
     cam_T_world: Float[np.ndarray, "4 4"] = field(init=False)
@@ -61,14 +61,15 @@ class Extrinsics:
     def decompose_transformation_matrix(
         self, T: Float[np.ndarray, "4 4"]
     ) -> tuple[Float[np.ndarray, "3 3"], Float[np.ndarray, "3"]]:
-        R = T[:3, :3]
-        t = T[:3, 3]
+        R: Float[np.ndarray, "3 3"] = T[:3, :3]
+        t: Float[np.ndarray, "..."] = T[:3, 3]
         return R, t
 
 
 @dataclass
 class Intrinsics:
-    camera_conventions: str
+    camera_conventions: Literal["RDF", "RUB"]
+    """RDF(OpenCV): X Right - Y Down - Z Front | RUB (OpenGL): X Right- Y Up - Z Back"""
     fl_x: float
     fl_y: float
     cx: float
