@@ -1,6 +1,25 @@
+import os
 import numpy as np
 import torch
 import torch.nn.functional as F
+from typing import Literal
+from jaxtyping import Float64
+from tqdm import tqdm
+
+
+def load_lambda_ts(
+    num_denoise_iters: Literal[2, 25, 50, 100],
+) -> Float64[torch.Tensor, "n b"]:
+    # load sigmas to optimize for timestep
+    sigma_list_path = f"data/sigmas/sigmas_{num_denoise_iters}.npy"
+    sigma_list = (
+        np.load(sigma_list_path).tolist()
+        if os.path.exists(sigma_list_path)
+        else np.load("data/sigmas/sigmas_25.npy").tolist()
+    )
+
+    lambda_ts = search_hypers(sigma_list)
+    return lambda_ts
 
 
 def search_hypers(sigmas):
@@ -38,9 +57,9 @@ def search_hypers(sigmas):
         24,
     ]
 
-    for v1 in v1_list:
-        for v2 in v2_list:
-            for v3 in v3_list:
+    for v1 in tqdm(v1_list, desc="Outer Loop (v1)"):
+        for v2 in tqdm(v2_list, desc="Middle Loop (v2)", leave=False):
+            for v3 in tqdm(v3_list, desc="Inner Loop (v3)", leave=False):
                 flag = True
                 lambda_t_list = []
                 for sigma in sigmas:
