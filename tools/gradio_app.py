@@ -1,6 +1,19 @@
+import PIL
 import PIL.Image
-import cv2
-import os
+from PIL.Image import Image
+
+from src.rr_logging_utils import (
+    log_camera,
+    create_svd_blueprint,
+)
+
+from src.pose_utils import generate_camera_parameters
+from src.camera_parameters import PinholeParameters
+from src.depth_utils import image_to_depth
+from src.image_warping import image_depth_warping
+from src.sigma_utils import load_lambda_ts
+from src.nerfstudio_data import frames_to_nerfstudio
+
 
 import gradio as gr
 from gradio_rerun import Rerun
@@ -13,36 +26,29 @@ import PIL
 import torch
 from pathlib import Path
 import threading
-import mmcv
 from queue import SimpleQueue
-import calibur
 import trimesh
+
+import mmcv
 
 from uuid import uuid4
 
 from typing import Final, assert_never, Literal
 
-from jaxtyping import Float64, Float32, Bool
-import json
-from dataclasses import asdict
+from jaxtyping import Float64, Float32, UInt8
 
 from monopriors.relative_depth_models import (
     get_relative_predictor,
-    RelativeDepthPrediction,
 )
 
-from src.pose_utils import generate_camera_poses_around_ellipse
-from src.image_warping import forward_warp
-from src.sigma_utils import search_hypers
 from src.custom_diffusers_pipeline.svd import StableVideoDiffusionPipeline
 from src.custom_diffusers_pipeline.scheduler import EulerDiscreteScheduler
-from src.depth_utils import depth_to_points, depth_edges_mask
-from src.nerfstudio_data import FrameColmap, NerfStudioColmapData
 
-from einops import rearrange
 
 SVD_HEIGHT: Final[int] = 576
 SVD_WIDTH: Final[int] = 1024
+NEAR: Final[float] = 0.0001
+FAR: Final[float] = 500.0
 
 if gr.NO_RELOAD:
     DepthAnythingV2Predictor = get_relative_predictor("DepthAnythingV2Predictor")(
@@ -82,37 +88,6 @@ def svd_render_threaded(
     log_queue.put(frames)
 
 
-def create_svd_blueprint(parent_log_path: Path) -> rrb.Blueprint:
-    blueprint = rrb.Blueprint(
-        rrb.Horizontal(
-            rrb.Spatial3DView(
-                origin=f"{parent_log_path}",
-            ),
-            rrb.TextLogView(origin="diffusion_step"),
-            rrb.Vertical(
-                rrb.Spatial2DView(
-                    origin=f"{parent_log_path}/generated_cam/image/rgb",
-                ),
-                rrb.Spatial2DView(
-                    origin=f"{parent_log_path}/generated_new/image/rgb",
-                ),
-            ),
-            rrb.Vertical(
-                rrb.Spatial2DView(
-                    origin=f"{parent_log_path}/initial_cam/image",
-                    contents=[
-                        "+ $origin/**",
-                    ],
-                ),
-                rrb.TensorView(origin="latents"),
-            ),
-            column_shares=[5, 1.5, 2, 2],
-        ),
-        collapse_panels=True,
-    )
-    return blueprint
-
-
 @rr.thread_local_stream("warped_image")
 def gradio_warped_image(
     image_path: str,
@@ -122,194 +97,108 @@ def gradio_warped_image(
     major_radius: float = 60.0,
     minor_radius: float = 70.0,
     num_frames: int = 25,  # StableDiffusion Video generates 25 frames
+    progress=gr.Progress(),
 ):
     # ensure that the degrees per frame is a float
     degrees_per_frame = float(degrees_per_frame)
-    # convert save_path from string to Path
-    image_path_name = Path(image_path).stem
-    save_path: Path = Path(image_path).parent / f"{image_path_name}_{uuid4()}"
-    if not save_path.exists():
-        save_path.mkdir(parents=True)
+
+    image_path: Path = Path(image_path) if isinstance(image_path, str) else image_path
+    assert image_path.exists(), f"Image file not found: {image_path}"
+    save_path: Path = image_path.parent / f"{image_path.stem}_{uuid4()}"
+
+    # setup rerun logging
     stream = rr.binary_stream()
-
     parent_log_path = Path("world")
-
-    # create blueprint
+    rr.log(f"{parent_log_path}", rr.ViewCoordinates.LDB, static=True)
     blueprint: rrb.Blueprint = create_svd_blueprint(parent_log_path)
     rr.send_blueprint(blueprint)
-    cam_log_path = parent_log_path / "initial_cam"
 
-    rr.log(f"{parent_log_path}", rr.ViewCoordinates.LDB, timeless=True)
-    rr.set_time_sequence("iteration", 0)
-
-    inverse = True if direction == "right" else False
-    cam_T_world_list: list[Float64[np.ndarray, "4 4"]] = (
-        generate_camera_poses_around_ellipse(
-            num_frames, degrees_per_frame, major_radius, minor_radius, inverse=inverse
-        )
+    # Load image and resize to SVD dimensions
+    rgb_original: Image = PIL.Image.open(image_path)
+    rgb_resized: Image = rgb_original.resize(
+        (SVD_WIDTH, SVD_HEIGHT), PIL.Image.Resampling.NEAREST
     )
-    near = 0.0001
-    far = 500.0
-    focal = 260.0
-    K = np.eye(3)
-    K[0, 0] = focal
-    K[1, 1] = focal
-    K[0, 2] = SVD_WIDTH / 2
-    K[1, 2] = SVD_HEIGHT / 2
+    rgb_np_original: UInt8[np.ndarray, "h w 3"] = np.array(rgb_original)
+    rgb_np_hw3: UInt8[np.ndarray, "h w 3"] = np.array(rgb_resized)
 
-    assert os.path.exists(image_path)
-    rgb_o = PIL.Image.open(image_path)
-    original_width, original_height = rgb_o.size
-    rgb_o = rgb_o.resize((SVD_WIDTH, SVD_HEIGHT), PIL.Image.Resampling.NEAREST)
-
-    rr.log(f"{cam_log_path}/image/rgb", rr.Image(rgb_o).compress(jpeg_quality=80))
-
-    relative_pred: RelativeDepthPrediction = DepthAnythingV2Predictor.__call__(
-        np.array(PIL.Image.open(image_path)), K_33=K.astype(np.float32)
-    )
-    image = np.array(rgb_o)
-    disparity: Float32[np.ndarray, "h w"] = relative_pred.disparity
-
-    disparity[disparity < 1e-5] = 1e-5
-    depth = 10000.0 / disparity
-    depth = np.clip(depth, near, far)
-
-    new_width, new_height = SVD_WIDTH, SVD_HEIGHT
-    # Resize the depth map to the Stable Diffusion Video dimensions
-    depth = cv2.resize(depth, (new_width, new_height), interpolation=cv2.INTER_NEAREST)
-    rr.log(f"{cam_log_path}/image/depth", rr.DepthImage(depth))
-
-    # remove flying pixels
-    # edges_mask: Bool[np.ndarray, "h w"] = depth_edges_mask(depth, threshold=0.1)
-    # masked_depth: Float32[np.ndarray, "h w"] = depth * ~edges_mask
-
-    depth_1hw: Float32[np.ndarray, "1 h w"] = rearrange(depth, "h w -> 1 h w")
-    pts_3d: Float32[np.ndarray, "h w 3"] = depth_to_points(
-        depth_1hw,
-        relative_pred.K_33,
-        R=cam_T_world_list[0][:3, :3].astype(np.float32),
-        t=cam_T_world_list[0][:3, 3].astype(np.float32),
+    # generate initial camera parameters for video trajectory
+    camera_list: list[PinholeParameters] = generate_camera_parameters(
+        num_frames=num_frames,
+        image_width=SVD_WIDTH,
+        image_height=SVD_HEIGHT,
+        degrees_per_frame=degrees_per_frame,
+        major_radius=major_radius,
+        minor_radius=minor_radius,
+        direction=direction,
     )
 
-    trimesh_pointcloud = trimesh.PointCloud(
-        vertices=pts_3d.reshape(-1, 3), colors=image.reshape(-1, 3)
+    assert len(camera_list) == num_frames, "Number of camera parameters mismatch"
+
+    # Estimate depth map and pointcloud for the input image
+    depth: Float32[np.ndarray, "h w"]
+    trimesh_pc: trimesh.PointCloud
+    depth_original: Float32[np.ndarray, "original_h original_w"]
+    trimesh_pc_original: trimesh.PointCloud
+
+    depth, trimesh_pc, depth_original, trimesh_pc_original = image_to_depth(
+        rgb_np_original=rgb_np_original,
+        rgb_np_hw3=rgb_np_hw3,
+        cam_params=camera_list[0],
+        near=NEAR,
+        far=FAR,
+        depth_predictor=DepthAnythingV2Predictor,
     )
 
     rr.log(
         f"{parent_log_path}/point_cloud",
         rr.Points3D(
-            positions=trimesh_pointcloud.vertices,
-            colors=trimesh_pointcloud.colors,
+            positions=trimesh_pc.vertices,
+            colors=trimesh_pc.colors,
         ),
+        static=True,
     )
 
-    cam_T_world_44_s = cam_T_world_list[0]
+    start_cam: PinholeParameters = camera_list[0]
     cond_image: list[PIL.Image.Image] = []
     masks: list[Float64[torch.Tensor, "1 72 128"]] = []
 
-    rr.log(
-        f"{cam_log_path}/image",
-        rr.Pinhole(
-            image_from_camera=K,
-            width=SVD_WIDTH,
-            height=SVD_HEIGHT,
-            camera_xyz=rr.ViewCoordinates.RDF,
-        ),
-    )
-    rr.log(
-        f"{cam_log_path}",
-        rr.Transform3D(
-            mat3x3=cam_T_world_44_s[:3, :3],
-            translation=cam_T_world_44_s[:3, 3],
-            from_parent=True,
-        ),
-    )
+    # Perform image depth warping to generated camera parameters
+    current_cam: PinholeParameters
+    for frame_id, current_cam in enumerate(camera_list):
+        rr.set_time_sequence("frame_id", frame_id)
+        if frame_id == 0:
+            cam_log_path: Path = parent_log_path / "warped_camera"
+            log_camera(cam_log_path, current_cam, rgb_np_hw3, depth)
+        else:
+            # clear logged depth from the previous frame
+            rr.log(f"{cam_log_path}/pinhole/depth", rr.Clear(recursive=False))
+            cam_log_path: Path = parent_log_path / "warped_camera"
+            # do image warping
+            warped_frame2, mask_erosion_tensor = image_depth_warping(
+                image=rgb_np_hw3,
+                depth=depth,
+                cam_T_world_44_s=start_cam.extrinsics.cam_T_world,
+                cam_T_world_44_t=current_cam.extrinsics.cam_T_world,
+                K=current_cam.intrinsics.k_matrix,
+            )
+            cond_image.append(warped_frame2)
+            masks.append(mask_erosion_tensor)
 
-    yield stream.read(), None
+            log_camera(cam_log_path, current_cam, np.asarray(warped_frame2))
+            yield stream.read(), None, []
 
-    i = 0
-    for cam_T_world_44_t in cam_T_world_list[1:]:
-        cam_log_path = parent_log_path / "generated_cam"
-        rr.set_time_sequence("iteration", i + 1)
-        warped_frame2, mask2, _ = forward_warp(
-            image, None, depth, cam_T_world_44_s, cam_T_world_44_t, K, None
-        )
-
-        rr.log(
-            f"{cam_log_path}/image/rgb",
-            rr.Image(np.uint8(warped_frame2)).compress(jpeg_quality=10),
-        )
-        rr.log(
-            f"{cam_log_path}/image",
-            rr.Pinhole(image_from_camera=K, width=SVD_WIDTH, height=SVD_HEIGHT),
-        )
-        rr.log(
-            f"{cam_log_path}",
-            rr.Transform3D(
-                mat3x3=cam_T_world_44_t[:3, :3],
-                translation=cam_T_world_44_t[:3, 3],
-                from_parent=True,
-            ),
-        )
-
-        mask = 1 - mask2
-        mask[mask < 0.5] = 0
-        mask[mask >= 0.5] = 1
-        mask: Float64[np.ndarray, "h w 3"] = np.repeat(
-            mask[:, :, np.newaxis] * 255.0, repeats=3, axis=2
-        )
-
-        kernel = np.ones((5, 5), np.uint8)
-        mask_erosion = cv2.dilate(np.array(mask), kernel, iterations=1)
-        mask_erosion = PIL.Image.fromarray(np.uint8(mask_erosion))
-
-        mask_erosion_ = np.array(mask_erosion) / 255.0
-        mask_erosion_[mask_erosion_ < 0.5] = 0
-        mask_erosion_[mask_erosion_ >= 0.5] = 1
-        warped_frame2 = PIL.Image.fromarray(np.uint8(warped_frame2))
-        # perform masking on the warped image
-        warped_frame2 = PIL.Image.fromarray(
-            np.uint8(warped_frame2 * (1 - mask_erosion_))
-        )
-
-        cond_image.append(warped_frame2)
-
-        mask_erosion = np.mean(mask_erosion_, axis=-1)
-        mask_erosion = (
-            mask_erosion.reshape(72, 8, 128, 8)
-            .transpose(0, 2, 1, 3)
-            .reshape(72, 128, 64)
-        )
-        mask_erosion = np.mean(mask_erosion, axis=2)
-        mask_erosion[mask_erosion < 0.2] = 0
-        mask_erosion[mask_erosion >= 0.2] = 1
-        mask_erosion_tensor = torch.from_numpy(mask_erosion)
-
-        masks.append(rearrange(mask_erosion_tensor, "h w -> 1 h w"))
-        i += 1
-        yield stream.read(), None
     masks: Float64[torch.Tensor, "b 72 128"] = torch.cat(masks)
-
-    # create a simple queue to log the latents during diffusion
-    log_queue: SimpleQueue = SimpleQueue()
-    # load sigmas
-    if num_denoise_iters == 25:
-        sigma_list: list[float] = np.load("data/sigmas/sigmas_25.npy").tolist()
-    elif num_denoise_iters == 50:
-        sigma_list: list[float] = np.load("data/sigmas/sigmas_50.npy").tolist()
-    elif num_denoise_iters == 100:
-        sigma_list: list[float] = np.load("data/sigmas/sigmas_100.npy").tolist()
-    else:
-        # for debugging only
-        sigma_list: list[float] = np.load("data/sigmas/sigmas_25.npy").tolist()
-
-    lambda_ts: Float64[torch.Tensor, "n b"] = search_hypers(sigma_list)
+    # load sigmas to optimize for timestep
+    progress(0.1, desc="Optimizing timesteps for diffusion")
+    lambda_ts: Float64[torch.Tensor, "n b"] = load_lambda_ts(num_denoise_iters)
+    progress(0.15, desc="Running diffusion")
 
     # to allow logging from a separate thread
+    log_queue: SimpleQueue = SimpleQueue()
     handle = threading.Thread(
         target=svd_render_threaded,
         kwargs={
-            "image_o": rgb_o,
+            "image_o": rgb_resized,
             "masks": masks,
             "cond_image": cond_image,
             "lambda_ts": lambda_ts,
@@ -333,107 +222,33 @@ def gradio_warped_image(
                     else:
                         rr.set_time_seconds(timeline, time)
                 static = True if entity_path == "latents" else False
+                print(entity_path)
                 rr.log(entity_path, entity, static=static)
-                yield stream.read(), None
+                yield stream.read(), None, []
             case _:
                 assert_never(msg)
 
     handle.join()
 
-    # restart to generate set of frames in the same timeline
-    i = 0
-    # setup things for saving the json file
-    frames_list: list[FrameColmap] = []
-    for frame, cam_T_world_44_cv in zip(frames, cam_T_world_list):
-        cam_log_path = parent_log_path / "generated_new"
-        generated_rgb_np = np.array(frame)
+    # all frames but the first one
+    frame: np.ndarray
+    for frame_id, (frame, cam_pararms) in enumerate(zip(frames, camera_list)):
+        # add one since the first frame is the original image
+        rr.set_time_sequence("frame_id", frame_id)
+        cam_log_path = parent_log_path / "generated_camera"
+        generated_rgb_np: UInt8[np.ndarray, "h w 3"] = np.array(frame)
+        log_camera(cam_log_path, cam_pararms, generated_rgb_np, depth=None)
+        yield stream.read(), None, []
 
-        world_T_cam_44_cv = np.linalg.inv(cam_T_world_44_cv)
-        world_T_cam_44_gl = calibur.convert_pose(
-            world_T_cam_44_cv,
-            src_convention=calibur.CC.CV,
-            dst_convention=calibur.CC.GL,
-        )
-
-        rr.set_time_sequence("iteration", i + 1)
-        rr.log(
-            f"{cam_log_path}/image/rgb",
-            rr.Image(generated_rgb_np).compress(jpeg_quality=10),
-        )
-        rr.log(
-            f"{cam_log_path}/image",
-            rr.Pinhole(
-                image_from_camera=K,
-                width=SVD_WIDTH,
-                height=SVD_HEIGHT,
-                camera_xyz=rr.ViewCoordinates.RUB,
-            ),
-        )
-        rr.log(
-            f"{cam_log_path}",
-            rr.Transform3D(
-                mat3x3=world_T_cam_44_gl[:3, :3],
-                translation=world_T_cam_44_gl[:3, 3],
-                from_parent=False,
-            ),
-        )
-
-        # save the generated frames
-        gframe_save_path = f"{save_path}/{i:06}.jpg"
-        save_bgr_img = mmcv.rgb2bgr(generated_rgb_np)
-        save_bgr_img = mmcv.imresize(save_bgr_img, (original_width, original_height))
-        mmcv.imwrite(save_bgr_img, str(gframe_save_path))
-
-        frames_list.append(
-            FrameColmap(
-                file_path=f"{i:06}.jpg",
-                transform_matrix=world_T_cam_44_gl.tolist(),
-                colmap_im_id=i,
-            )
-        )
-
-        i += 1
-        yield stream.read(), None
-
-    # save video file
-    mmcv.frames2video(str(save_path), str(save_path / "output.mp4"), fps=7)
-    # redundant log so that yield stream.read does not throw an error
-    rr.log(
-        f"{cam_log_path}/image/rgb",
-        rr.Image(generated_rgb_np).compress(jpeg_quality=10),
+    frames_to_nerfstudio(
+        rgb_np_original, frames, trimesh_pc_original, camera_list, save_path
     )
-
-    # save point cloud
-    ply_data = trimesh_pointcloud.export(file_type="ply")
-    ply_file_path = f"{save_path}/pointcloud.ply"
-    with open(ply_file_path, "wb") as ply_file:
-        ply_file.write(ply_data)
-
-    # save the json file
-    nerf_data = NerfStudioColmapData(
-        w=original_width,
-        h=original_height,
-        fl_x=focal,
-        fl_y=focal,
-        cx=original_width / 2,
-        cy=original_height / 2,
-        k1=0.0,
-        k2=0.0,
-        p1=0.0,
-        p2=0.0,
-        camera_model="OPENCV",
-        ply_file_path="pointcloud.ply",
-        frames=frames_list,
-    )
-    # save to json
-    # Convert the data to a dictionary
-    nerf_data_dict = asdict(nerf_data)
-    # Convert the frames list to a list of dictionaries
-    nerf_data_dict["frames"] = [asdict(frame) for frame in nerf_data.frames]
-
-    with open(save_path / "transforms.json", "w") as f:
-        json.dump(nerf_data_dict, f)
-    yield stream.read(), str(save_path / "output.mp4")
+    video_file_path = save_path / "output.mp4"
+    mmcv.frames2video(str(save_path), str(video_file_path), fps=7)
+    image_files = list(save_path.glob("*.jpg"))
+    # convert to list of str
+    image_files = [str(image_file) for image_file in image_files]
+    yield stream.read(), video_file_path, image_files
 
 
 with gr.Blocks() as demo:
@@ -464,6 +279,7 @@ with gr.Blocks() as demo:
                     )
             with gr.Tab(label="Outputs"):
                 video_output = gr.Video(interactive=False)
+                image_files_output = gr.File(interactive=False, file_count="multiple")
 
     # Rerun 0.16 has issues when embedded in a Gradio tab, so we share a viewer between all the tabs.
     # In 0.17 we can instead scope each viewer to its own tab to clean up these examples further.
@@ -475,7 +291,7 @@ with gr.Blocks() as demo:
     warp_img_btn.click(
         gradio_warped_image,
         inputs=[img, num_iters, cam_direction, degrees_per_frame],
-        outputs=[viewer, video_output],
+        outputs=[viewer, video_output, image_files_output],
     )
 
     gr.Examples(
@@ -486,7 +302,7 @@ with gr.Blocks() as demo:
         ],
         fn=warp_img_btn,
         inputs=[img, num_iters, cam_direction, degrees_per_frame],
-        outputs=[viewer, video_output],
+        outputs=[viewer, video_output, image_files_output],
     )
 
 
