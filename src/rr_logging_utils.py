@@ -27,7 +27,7 @@ def log_camera(
             image_from_camera=cam.intrinsics.k_matrix,
             width=cam.intrinsics.width,
             height=cam.intrinsics.height,
-            camera_xyz=rr.ViewCoordinates.RDF,
+            camera_xyz=getattr(rr.ViewCoordinates, cam.intrinsics.camera_conventions),
         ),
     )
     rr.log(f"{pinhole_log_path}/rgb", rr.Image(rgb_np_hw3).compress(jpeg_quality=80))
