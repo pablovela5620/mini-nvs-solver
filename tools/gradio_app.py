@@ -28,12 +28,12 @@ from pathlib import Path
 import threading
 from queue import SimpleQueue
 import trimesh
+import subprocess
 
 import mmcv
-
 from uuid import uuid4
 
-from typing import Final, assert_never, Literal
+from typing import Final, Literal
 
 from jaxtyping import Float64, Float32, UInt8
 
@@ -97,7 +97,7 @@ def gradio_warped_image(
     major_radius: float = 60.0,
     minor_radius: float = 70.0,
     num_frames: int = 25,  # StableDiffusion Video generates 25 frames
-    progress=gr.Progress(),
+    progress=gr.Progress(track_tqdm=True),
 ):
     # ensure that the degrees per frame is a float
     degrees_per_frame = float(degrees_per_frame)
@@ -191,7 +191,7 @@ def gradio_warped_image(
     # load sigmas to optimize for timestep
     progress(0.1, desc="Optimizing timesteps for diffusion")
     lambda_ts: Float64[torch.Tensor, "n b"] = load_lambda_ts(num_denoise_iters)
-    progress(0.15, desc="Running diffusion")
+    progress(0.15, desc="Starting diffusion")
 
     # to allow logging from a separate thread
     log_queue: SimpleQueue = SimpleQueue()
@@ -222,12 +222,10 @@ def gradio_warped_image(
                     else:
                         rr.set_time_seconds(timeline, time)
                 static = True if entity_path == "latents" else False
-                print(entity_path)
                 rr.log(entity_path, entity, static=static)
                 yield stream.read(), None, []
             case _:
-                assert_never(msg)
-
+                assert False
     handle.join()
 
     # all frames but the first one
@@ -243,12 +241,15 @@ def gradio_warped_image(
     frames_to_nerfstudio(
         rgb_np_original, frames, trimesh_pc_original, camera_list, save_path
     )
+    # zip up nerfstudio data
+    zip_file_path = save_path / "nerfstudio.zip"
+    progress(0.95, desc="Zipping up camera data in nerfstudio format")
+    # Run the zip command
+    subprocess.run(["zip", "-r", str(zip_file_path), str(save_path)], check=True)
     video_file_path = save_path / "output.mp4"
     mmcv.frames2video(str(save_path), str(video_file_path), fps=7)
-    image_files = list(save_path.glob("*.jpg"))
-    # convert to list of str
-    image_files = [str(image_file) for image_file in image_files]
-    yield stream.read(), video_file_path, image_files
+    print(f"Video saved to {video_file_path}")
+    yield stream.read(), video_file_path, [str(zip_file_path)]
 
 
 with gr.Blocks() as demo:
@@ -297,8 +298,8 @@ with gr.Blocks() as demo:
     gr.Examples(
         [
             [
-                "/home/pablo/0Dev/docker/.per/repos/NVS_Solver/example_imgs/single/000001.jpg"
-            ]
+                "/home/pablo/0Dev/docker/.per/repos/NVS_Solver/example_imgs/single/000001.jpg",
+            ],
         ],
         fn=warp_img_btn,
         inputs=[img, num_iters, cam_direction, degrees_per_frame],
@@ -307,4 +308,4 @@ with gr.Blocks() as demo:
 
 
 if __name__ == "__main__":
-    demo.launch()
+    demo.queue().launch()

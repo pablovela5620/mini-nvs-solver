@@ -8,9 +8,6 @@ import numpy as np
 import trimesh
 from einops import rearrange
 import mmcv
-import rerun as rr
-
-np.set_printoptions(suppress=True)
 
 
 def image_to_depth(
