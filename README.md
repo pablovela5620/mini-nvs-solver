@@ -1,4 +1,4 @@
-# MiniNVS-Solver
+# Mini-NVS-Solver
 A minimal implementation of [NVS-Solver](https://github.com/ZHU-Zhiyu/NVS_Solver). Using [Rerun](https://rerun.io/) viewer, [Pixi](http://pixi.sh/) and [Gradio](https://www.gradio.app/) for easy use
 <p align="center">
   <img src="media/mini-nvs-solver.gif" alt="example output" width="480" />
