@@ -87,6 +87,7 @@ def generate_camera_parameters(
     degrees_per_frame: int | float,
     major_radius: float,
     minor_radius: float,
+    focal: float = 260.0,
     direction: Literal["left", "right"] = "right",
 ) -> list[PinholeParameters]:
     inverse = True if direction == "right" else False
@@ -95,7 +96,7 @@ def generate_camera_parameters(
             num_frames, degrees_per_frame, major_radius, minor_radius, inverse=inverse
         )
     )
-    focal: float = 260.0
+    # set a very small focal length for a wide FOV
     intri = Intrinsics(
         camera_conventions="RDF",
         fl_x=focal,
