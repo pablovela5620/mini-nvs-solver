@@ -50,7 +50,6 @@ def create_svd_blueprint(parent_log_path: Path) -> rrb.Blueprint:
                     origin=f"{nerfstudio_path}",
                 ),
             ),
-            rrb.TextLogView(origin="diffusion_step"),
             rrb.Vertical(
                 rrb.Spatial2DView(
                     origin=f"{parent_log_path}/warped_camera/pinhole",

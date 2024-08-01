@@ -24,7 +24,6 @@ from einops import rearrange
 from queue import SimpleQueue
 import rerun as rr
 
-from beartype import beartype
 from typing import no_type_check
 
 logger = logging.get_logger(__name__)  # pylint: disable=invalid-name
@@ -599,18 +598,9 @@ class StableVideoDiffusionPipeline(DiffusionPipeline):
                                 "latents",
                                 rr.Tensor(latents),
                                 [
-                                    ("iteration", i),
+                                    ("frame_id", 0),
                                 ],
                             )
-                        )
-                        log_queue.put(
-                            (
-                                "diffusion_step",
-                                rr.TextLog(f"Diffusion step {i}"),
-                                [
-                                    ("iteration", i),
-                                ],
-                            ),
                         )
                     else:
                         rr.log("latents", rr.Tensor(latents), static=True)

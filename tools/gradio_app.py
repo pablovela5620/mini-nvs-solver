@@ -185,7 +185,7 @@ def gradio_warped_image(
             masks.append(mask_erosion_tensor)
 
             log_camera(cam_log_path, current_cam, np.asarray(warped_frame2))
-            yield stream.read(), None, []
+            yield stream.read(), None, [], ""
 
     masks: Float64[torch.Tensor, "b 72 128"] = torch.cat(masks)
     # load sigmas to optimize for timestep
@@ -209,21 +209,25 @@ def gradio_warped_image(
     )
 
     handle.start()
+    i = 0
     while True:
         msg = log_queue.get()
         match msg:
             case frames if all(isinstance(frame, PIL.Image.Image) for frame in frames):
                 break
             case entity_path, entity, times:
+                i += 1
                 rr.reset_time()
                 for timeline, time in times:
                     if isinstance(time, int):
                         rr.set_time_sequence(timeline, time)
                     else:
                         rr.set_time_seconds(timeline, time)
-                static = True if entity_path == "latents" else False
+                static = False
+                if entity_path == "diffusion_step":
+                    static = True
                 rr.log(entity_path, entity, static=static)
-                yield stream.read(), None, []
+                yield stream.read(), None, [], f"{i} out of {num_denoise_iters}"
             case _:
                 assert False
     handle.join()
@@ -236,7 +240,7 @@ def gradio_warped_image(
         cam_log_path = parent_log_path / "generated_camera"
         generated_rgb_np: UInt8[np.ndarray, "h w 3"] = np.array(frame)
         log_camera(cam_log_path, cam_pararms, generated_rgb_np, depth=None)
-        yield stream.read(), None, []
+        yield stream.read(), None, [], "finished"
 
     frames_to_nerfstudio(
         rgb_np_original, frames, trimesh_pc_original, camera_list, save_path
@@ -249,7 +253,7 @@ def gradio_warped_image(
     video_file_path = save_path / "output.mp4"
     mmcv.frames2video(str(save_path), str(video_file_path), fps=7)
     print(f"Video saved to {video_file_path}")
-    yield stream.read(), video_file_path, [str(zip_file_path)]
+    yield stream.read(), video_file_path, [str(zip_file_path)], "finished"
 
 
 with gr.Blocks() as demo:
@@ -278,6 +282,10 @@ with gr.Blocks() as demo:
                         value=0.3,
                         label="Degrees per frame",
                     )
+                    iteration_num = gr.Textbox(
+                        value="",
+                        label="Current Diffusion Step",
+                    )
             with gr.Tab(label="Outputs"):
                 video_output = gr.Video(interactive=False)
                 image_files_output = gr.File(interactive=False, file_count="multiple")
@@ -292,7 +300,7 @@ with gr.Blocks() as demo:
     warp_img_btn.click(
         gradio_warped_image,
         inputs=[img, num_iters, cam_direction, degrees_per_frame],
-        outputs=[viewer, video_output, image_files_output],
+        outputs=[viewer, video_output, image_files_output, iteration_num],
     )
 
     gr.Examples(
