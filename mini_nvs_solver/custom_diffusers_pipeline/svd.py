@@ -12,7 +12,7 @@ from transformers import CLIPImageProcessor, CLIPVisionModelWithProjection
 
 from diffusers.image_processor import VaeImageProcessor
 from diffusers import AutoencoderKLTemporalDecoder, UNetSpatioTemporalConditionModel
-from src.custom_diffusers_pipeline.scheduler import (
+from mini_nvs_solver.custom_diffusers_pipeline.scheduler import (
     EulerDiscreteScheduler as CustomEulerDiscreteScheduler,
 )
 from diffusers.schedulers import EulerDiscreteScheduler

@@ -27,6 +27,7 @@ def main(upload_examples: bool) -> None:
         },
         {"local_path": "./pyproject.toml", "repo_path": "pyproject.toml"},
         {"local_path": "./.pixi.sh", "repo_path": ".pixi.sh"},
+        {"local_path": "./pixi.lock", "repo_path": "pixi.lock"},
     ]
 
     for file in tqdm(files_to_upload, desc="Uploading files"):

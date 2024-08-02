@@ -1,7 +1,7 @@
 import numpy as np
 from jaxtyping import UInt8, Float32
 from pathlib import Path
-from src.camera_parameters import PinholeParameters
+from mini_nvs_solver.camera_parameters import PinholeParameters
 import rerun as rr
 import rerun.blueprint as rrb
 
@@ -28,6 +28,7 @@ def log_camera(
             width=cam.intrinsics.width,
             height=cam.intrinsics.height,
             camera_xyz=getattr(rr.ViewCoordinates, cam.intrinsics.camera_conventions),
+            image_plane_distance=5.0,
         ),
     )
     rr.log(f"{pinhole_log_path}/rgb", rr.Image(rgb_np_hw3).compress(jpeg_quality=80))

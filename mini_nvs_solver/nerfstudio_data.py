@@ -8,14 +8,14 @@ import trimesh
 import calibur
 import mmcv
 from jaxtyping import UInt8
-from src.camera_parameters import (
+from mini_nvs_solver.camera_parameters import (
     PinholeParameters,
     Intrinsics,
     Extrinsics,
     rescale_intri,
 )
 import rerun as rr
-from src.rr_logging_utils import log_camera
+from mini_nvs_solver.rr_logging_utils import log_camera
 
 
 @dataclass

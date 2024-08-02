@@ -1,18 +1,26 @@
+try:
+    import spaces  # type: ignore
+
+    IN_SPACES = True
+except ImportError:
+    print("Not running on Zero")
+    IN_SPACES = False
+
 import PIL
 import PIL.Image
 from PIL.Image import Image
 
-from src.rr_logging_utils import (
+from mini_nvs_solver.rr_logging_utils import (
     log_camera,
     create_svd_blueprint,
 )
 
-from src.pose_utils import generate_camera_parameters
-from src.camera_parameters import PinholeParameters
-from src.depth_utils import image_to_depth
-from src.image_warping import image_depth_warping
-from src.sigma_utils import load_lambda_ts
-from src.nerfstudio_data import frames_to_nerfstudio
+from mini_nvs_solver.pose_utils import generate_camera_parameters
+from mini_nvs_solver.camera_parameters import PinholeParameters
+from mini_nvs_solver.depth_utils import image_to_depth
+from mini_nvs_solver.image_warping import image_depth_warping
+from mini_nvs_solver.sigma_utils import load_lambda_ts
+from mini_nvs_solver.nerfstudio_data import frames_to_nerfstudio
 
 
 import gradio as gr
@@ -25,7 +33,6 @@ import numpy as np
 import PIL
 import torch
 from pathlib import Path
-import threading
 from queue import SimpleQueue
 import trimesh
 import subprocess
@@ -41,8 +48,8 @@ from monopriors.relative_depth_models import (
     get_relative_predictor,
 )
 
-from src.custom_diffusers_pipeline.svd import StableVideoDiffusionPipeline
-from src.custom_diffusers_pipeline.scheduler import EulerDiscreteScheduler
+from mini_nvs_solver.custom_diffusers_pipeline.svd import StableVideoDiffusionPipeline
+from mini_nvs_solver.custom_diffusers_pipeline.scheduler import EulerDiscreteScheduler
 
 
 SVD_HEIGHT: Final[int] = 576
@@ -84,8 +91,36 @@ def svd_render_threaded(
         decode_chunk_size=8,
         num_inference_steps=num_denoise_iters,
     ).frames[0]
+    if log_queue is not None:
+        log_queue.put(frames)
 
-    log_queue.put(frames)
+
+def svd_render(
+    image_o: PIL.Image.Image,
+    masks: Float64[torch.Tensor, "b 72 128"],
+    cond_image: PIL.Image.Image,
+    lambda_ts: Float64[torch.Tensor, "n b"],
+    num_denoise_iters: Literal[2, 25, 50, 100],
+    weight_clamp: float,
+    log_queue: SimpleQueue | None = None,
+):
+    frames: list[PIL.Image.Image] = SVD_PIPE(
+        [image_o],
+        log_queue=None,
+        temp_cond=cond_image,
+        mask=masks,
+        lambda_ts=lambda_ts,
+        weight_clamp=weight_clamp,
+        num_frames=25,
+        decode_chunk_size=8,
+        num_inference_steps=num_denoise_iters,
+    ).frames[0]
+    return frames
+
+
+if IN_SPACES:
+    svd_render = spaces.GPU(svd_render)
+    image_to_depth = spaces.GPU(image_to_depth, duration=400)
 
 
 @rr.thread_local_stream("warped_image")
@@ -194,43 +229,52 @@ def gradio_warped_image(
     progress(0.15, desc="Starting diffusion")
 
     # to allow logging from a separate thread
-    log_queue: SimpleQueue = SimpleQueue()
-    handle = threading.Thread(
-        target=svd_render_threaded,
-        kwargs={
-            "image_o": rgb_resized,
-            "masks": masks,
-            "cond_image": cond_image,
-            "lambda_ts": lambda_ts,
-            "num_denoise_iters": num_denoise_iters,
-            "weight_clamp": 0.2,
-            "log_queue": log_queue,
-        },
-    )
+    # log_queue: SimpleQueue = SimpleQueue()
+    # handle = threading.Thread(
+    #     target=svd_render_threaded,
+    #     kwargs={
+    #         "image_o": rgb_resized,
+    #         "masks": masks,
+    #         "cond_image": cond_image,
+    #         "lambda_ts": lambda_ts,
+    #         "num_denoise_iters": num_denoise_iters,
+    #         "weight_clamp": 0.2,
+    #         "log_queue": None,
+    #     },
+    # )
 
-    handle.start()
-    i = 0
-    while True:
-        msg = log_queue.get()
-        match msg:
-            case frames if all(isinstance(frame, PIL.Image.Image) for frame in frames):
-                break
-            case entity_path, entity, times:
-                i += 1
-                rr.reset_time()
-                for timeline, time in times:
-                    if isinstance(time, int):
-                        rr.set_time_sequence(timeline, time)
-                    else:
-                        rr.set_time_seconds(timeline, time)
-                static = False
-                if entity_path == "diffusion_step":
-                    static = True
-                rr.log(entity_path, entity, static=static)
-                yield stream.read(), None, [], f"{i} out of {num_denoise_iters}"
-            case _:
-                assert False
-    handle.join()
+    # handle.start()
+    # i = 0
+    # while True:
+    #     msg = log_queue.get()
+    #     match msg:
+    #         case frames if all(isinstance(frame, PIL.Image.Image) for frame in frames):
+    #             break
+    #         case entity_path, entity, times:
+    #             i += 1
+    #             rr.reset_time()
+    #             for timeline, time in times:
+    #                 if isinstance(time, int):
+    #                     rr.set_time_sequence(timeline, time)
+    #                 else:
+    #                     rr.set_time_seconds(timeline, time)
+    #             static = False
+    #             if entity_path == "diffusion_step":
+    #                 static = True
+    #             rr.log(entity_path, entity, static=static)
+    #             yield stream.read(), None, [], f"{i} out of {num_denoise_iters}"
+    #         case _:
+    #             assert False
+    # handle.join()
+    frames = svd_render(
+        image_o=rgb_resized,
+        masks=masks,
+        cond_image=cond_image,
+        lambda_ts=lambda_ts,
+        num_denoise_iters=num_denoise_iters,
+        weight_clamp=0.2,
+        log_queue=None,
+    )
 
     # all frames but the first one
     frame: np.ndarray
@@ -295,6 +339,7 @@ with gr.Blocks() as demo:
     with gr.Row():
         viewer = Rerun(
             streaming=True,
+            height=800,
         )
 
     warp_img_btn.click(
@@ -306,7 +351,7 @@ with gr.Blocks() as demo:
     gr.Examples(
         [
             [
-                "/home/pablo/0Dev/docker/.per/repos/NVS_Solver/example_imgs/single/000001.jpg",
+                "examples/000001.jpg",
             ],
         ],
         fn=warp_img_btn,

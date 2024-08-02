@@ -1,7 +1,7 @@
 import rerun as rr
 from argparse import ArgumentParser
 from pathlib import Path
-from src.api.inference import nvs_solver_inference
+from mini_nvs_solver.api.inference import nvs_solver_inference
 
 
 if __name__ == "__main__":

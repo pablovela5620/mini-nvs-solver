@@ -1,5 +1,9 @@
 from jaxtyping import Float32, Int64, Bool, UInt8
-from src.camera_parameters import Intrinsics, PinholeParameters, rescale_intri
+from mini_nvs_solver.camera_parameters import (
+    Intrinsics,
+    PinholeParameters,
+    rescale_intri,
+)
 from monopriors.relative_depth_models import (
     RelativeDepthPrediction,
     BaseRelativePredictor,
@@ -26,6 +30,7 @@ def image_to_depth(
         target_width=original_width,
         target_height=original_height,
     )
+    depth_predictor.set_model_device("cuda")
     relative_pred: RelativeDepthPrediction = depth_predictor.__call__(
         rgb_np_original, K_33=original_intrinsics.k_matrix.astype(np.float32)
     )

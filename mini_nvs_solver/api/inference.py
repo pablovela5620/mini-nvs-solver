@@ -3,14 +3,14 @@ import numpy as np
 from pathlib import Path
 from typing import Literal, Final
 from jaxtyping import Float64, Float32, UInt8
-from src.pose_utils import generate_camera_parameters
-from src.image_warping import image_depth_warping
-from src.sigma_utils import load_lambda_ts
-from src.camera_parameters import PinholeParameters
-from src.nerfstudio_data import frames_to_nerfstudio
+from mini_nvs_solver.pose_utils import generate_camera_parameters
+from mini_nvs_solver.image_warping import image_depth_warping
+from mini_nvs_solver.sigma_utils import load_lambda_ts
+from mini_nvs_solver.camera_parameters import PinholeParameters
+from mini_nvs_solver.nerfstudio_data import frames_to_nerfstudio
 
-from src.depth_utils import image_to_depth
-from src.rr_logging_utils import (
+from mini_nvs_solver.depth_utils import image_to_depth
+from mini_nvs_solver.rr_logging_utils import (
     log_camera,
     create_svd_blueprint,
 )
@@ -19,13 +19,10 @@ import rerun.blueprint as rrb
 import PIL
 import PIL.Image
 from PIL.Image import Image
-from monopriors.relative_depth_models import (
-    get_relative_predictor,
-    BaseRelativePredictor,
-)
 
-from src.custom_diffusers_pipeline.svd import StableVideoDiffusionPipeline
-from src.custom_diffusers_pipeline.scheduler import EulerDiscreteScheduler
+from monopriors.relative_depth_models.depth_anything_v2 import DepthAnythingV2Predictor
+from mini_nvs_solver.custom_diffusers_pipeline.svd import StableVideoDiffusionPipeline
+from mini_nvs_solver.custom_diffusers_pipeline.scheduler import EulerDiscreteScheduler
 
 import trimesh
 
@@ -46,10 +43,9 @@ def nvs_solver_inference(
     num_frames: int = 25,  # StableDiffusion Video generates 25 frames
     save_path: Path | None = None,
 ) -> None:
-    # Load DepthAnythingV2Predictor and StableVideoDiffusionPipeline
-    DepthAnythingV2Predictor: BaseRelativePredictor = get_relative_predictor(
-        "DepthAnythingV2Predictor"
-    )(device="cuda")
+    depth_predictor: DepthAnythingV2Predictor = DepthAnythingV2Predictor(
+        device="cuda", encoder="vitl"
+    )
     SVD_PIPE = StableVideoDiffusionPipeline.from_pretrained(
         "stabilityai/stable-video-diffusion-img2vid-xt",
         torch_dtype=torch.float16,
@@ -101,7 +97,7 @@ def nvs_solver_inference(
         cam_params=camera_list[0],
         near=NEAR,
         far=FAR,
-        depth_predictor=DepthAnythingV2Predictor,
+        depth_predictor=depth_predictor,
     )
 
     rr.log(

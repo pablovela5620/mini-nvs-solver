@@ -1,6 +1,6 @@
 import numpy as np
 from jaxtyping import Float64
-from src.camera_parameters import (
+from mini_nvs_solver.camera_parameters import (
     Intrinsics,
     Extrinsics,
     PinholeParameters,
