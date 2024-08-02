@@ -33,7 +33,6 @@ import numpy as np
 import PIL
 import torch
 from pathlib import Path
-from queue import SimpleQueue
 import trimesh
 import subprocess
 
@@ -44,9 +43,7 @@ from typing import Final, Literal
 
 from jaxtyping import Float64, Float32, UInt8
 
-from monopriors.relative_depth_models import (
-    get_relative_predictor,
-)
+from monopriors.relative_depth_models.depth_anything_v2 import DepthAnythingV2Predictor
 
 from mini_nvs_solver.custom_diffusers_pipeline.svd import StableVideoDiffusionPipeline
 from mini_nvs_solver.custom_diffusers_pipeline.scheduler import EulerDiscreteScheduler
@@ -58,8 +55,8 @@ NEAR: Final[float] = 0.0001
 FAR: Final[float] = 500.0
 
 if gr.NO_RELOAD:
-    DepthAnythingV2Predictor = get_relative_predictor("DepthAnythingV2Predictor")(
-        device="cuda"
+    depth_predictor: DepthAnythingV2Predictor = DepthAnythingV2Predictor(
+        device="cuda", encoder="vitl"
     )
     SVD_PIPE = StableVideoDiffusionPipeline.from_pretrained(
         "stabilityai/stable-video-diffusion-img2vid-xt",
@@ -71,30 +68,6 @@ if gr.NO_RELOAD:
     SVD_PIPE.scheduler = scheduler
 
 
-def svd_render_threaded(
-    image_o: PIL.Image.Image,
-    masks: Float64[torch.Tensor, "b 72 128"],
-    cond_image: PIL.Image.Image,
-    lambda_ts: Float64[torch.Tensor, "n b"],
-    num_denoise_iters: Literal[2, 25, 50, 100],
-    weight_clamp: float,
-    log_queue: SimpleQueue | None = None,
-):
-    frames: list[PIL.Image.Image] = SVD_PIPE(
-        [image_o],
-        log_queue=log_queue,
-        temp_cond=cond_image,
-        mask=masks,
-        lambda_ts=lambda_ts,
-        weight_clamp=weight_clamp,
-        num_frames=25,
-        decode_chunk_size=8,
-        num_inference_steps=num_denoise_iters,
-    ).frames[0]
-    if log_queue is not None:
-        log_queue.put(frames)
-
-
 def svd_render(
     image_o: PIL.Image.Image,
     masks: Float64[torch.Tensor, "b 72 128"],
@@ -102,9 +75,9 @@ def svd_render(
     lambda_ts: Float64[torch.Tensor, "n b"],
     num_denoise_iters: Literal[2, 25, 50, 100],
     weight_clamp: float,
-    log_queue: SimpleQueue | None = None,
+    svd_pipe: StableVideoDiffusionPipeline,
 ):
-    frames: list[PIL.Image.Image] = SVD_PIPE(
+    frames: list[PIL.Image.Image] = svd_pipe(
         [image_o],
         log_queue=None,
         temp_cond=cond_image,
@@ -134,6 +107,10 @@ def gradio_warped_image(
     num_frames: int = 25,  # StableDiffusion Video generates 25 frames
     progress=gr.Progress(track_tqdm=True),
 ):
+    if num_denoise_iters != 2 and IN_SPACES:
+        gr.Warning(
+            "Running on Zero, anything greater than 2 iterations may cause GPU abort due to long running time"
+        )
     # ensure that the degrees per frame is a float
     degrees_per_frame = float(degrees_per_frame)
 
@@ -181,7 +158,7 @@ def gradio_warped_image(
         cam_params=camera_list[0],
         near=NEAR,
         far=FAR,
-        depth_predictor=DepthAnythingV2Predictor,
+        depth_predictor=depth_predictor,
     )
 
     rr.log(
@@ -220,7 +197,7 @@ def gradio_warped_image(
             masks.append(mask_erosion_tensor)
 
             log_camera(cam_log_path, current_cam, np.asarray(warped_frame2))
-            yield stream.read(), None, [], ""
+            yield stream.read(), None, [], "Warping images"
 
     masks: Float64[torch.Tensor, "b 72 128"] = torch.cat(masks)
     # load sigmas to optimize for timestep
@@ -228,52 +205,14 @@ def gradio_warped_image(
     lambda_ts: Float64[torch.Tensor, "n b"] = load_lambda_ts(num_denoise_iters)
     progress(0.15, desc="Starting diffusion")
 
-    # to allow logging from a separate thread
-    # log_queue: SimpleQueue = SimpleQueue()
-    # handle = threading.Thread(
-    #     target=svd_render_threaded,
-    #     kwargs={
-    #         "image_o": rgb_resized,
-    #         "masks": masks,
-    #         "cond_image": cond_image,
-    #         "lambda_ts": lambda_ts,
-    #         "num_denoise_iters": num_denoise_iters,
-    #         "weight_clamp": 0.2,
-    #         "log_queue": None,
-    #     },
-    # )
-
-    # handle.start()
-    # i = 0
-    # while True:
-    #     msg = log_queue.get()
-    #     match msg:
-    #         case frames if all(isinstance(frame, PIL.Image.Image) for frame in frames):
-    #             break
-    #         case entity_path, entity, times:
-    #             i += 1
-    #             rr.reset_time()
-    #             for timeline, time in times:
-    #                 if isinstance(time, int):
-    #                     rr.set_time_sequence(timeline, time)
-    #                 else:
-    #                     rr.set_time_seconds(timeline, time)
-    #             static = False
-    #             if entity_path == "diffusion_step":
-    #                 static = True
-    #             rr.log(entity_path, entity, static=static)
-    #             yield stream.read(), None, [], f"{i} out of {num_denoise_iters}"
-    #         case _:
-    #             assert False
-    # handle.join()
-    frames = svd_render(
+    frames: list[PIL.Image.Image] = svd_render(
         image_o=rgb_resized,
         masks=masks,
         cond_image=cond_image,
         lambda_ts=lambda_ts,
         num_denoise_iters=num_denoise_iters,
         weight_clamp=0.2,
-        log_queue=None,
+        svd_pipe=SVD_PIPE,
     )
 
     # all frames but the first one
@@ -283,20 +222,22 @@ def gradio_warped_image(
         rr.set_time_sequence("frame_id", frame_id)
         cam_log_path = parent_log_path / "generated_camera"
         generated_rgb_np: UInt8[np.ndarray, "h w 3"] = np.array(frame)
+        print(f"Logging frame {frame_id}")
         log_camera(cam_log_path, cam_pararms, generated_rgb_np, depth=None)
-        yield stream.read(), None, [], "finished"
+        yield stream.read(), None, [], "Logging generated frames"
 
     frames_to_nerfstudio(
         rgb_np_original, frames, trimesh_pc_original, camera_list, save_path
     )
     # zip up nerfstudio data
     zip_file_path = save_path / "nerfstudio.zip"
-    progress(0.95, desc="Zipping up camera data in nerfstudio format")
+    # progress(0.95, desc="Zipping up camera data in nerfstudio format")
     # Run the zip command
     subprocess.run(["zip", "-r", str(zip_file_path), str(save_path)], check=True)
     video_file_path = save_path / "output.mp4"
     mmcv.frames2video(str(save_path), str(video_file_path), fps=7)
     print(f"Video saved to {video_file_path}")
+
     yield stream.read(), video_file_path, [str(zip_file_path)], "finished"
 
 
@@ -328,7 +269,7 @@ with gr.Blocks() as demo:
                     )
                     iteration_num = gr.Textbox(
                         value="",
-                        label="Current Diffusion Step",
+                        label="Status",
                     )
             with gr.Tab(label="Outputs"):
                 video_output = gr.Video(interactive=False)

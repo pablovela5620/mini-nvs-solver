@@ -4,7 +4,11 @@ version = "0.1.0"
 description = "Add a short description here"
 authors = [{ name = "Pablo Vela", email = "pablovela5620@gmail.com" }]
 requires-python = ">= 3.10"
-dependencies = ["gradio-rerun>=0.0.3,<0.0.4", "monopriors>=0.1.0,<0.2", "mmcv-lite>=2.2.0,<3", "calibur>=0.0.1,<0.0.2"]
+dependencies = [
+    "monopriors>=0.1.0,<0.2",
+    "mmcv-lite>=2.2.0,<3",
+    "calibur>=0.0.1,<0.0.2", "gradio-rerun>=0.0.4,<0.0.5",
+]
 
 [build-system]
 requires = ["setuptools"]

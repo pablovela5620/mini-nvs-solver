@@ -413,7 +413,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/zstd-1.5.6-ha6fb4c9_0.conda
       - pypi: https://files.pythonhosted.org/packages/6a/00/b08f23b7d7e1e14ce01419a467b583edbb93c6cdb8654e54a9cc579cd61f/addict-2.4.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ba/d6/b3046c86cdbb32084b94bbf4324d47acc9991419c2775dc4038fff19950e/calibur-0.0.1-py3-none-any.whl
-      - pypi: https://files.pythonhosted.org/packages/0b/8f/1493035518f57e71771cec5c8df06b3aa152a55fda88fdde6b6c0ca00b50/gradio_rerun-0.0.3-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/dd/ac/007d066b0cdcb81d7c6c299435a8c44741de814d1ca65600843f2d4ceeec/gradio_rerun-0.0.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/59/bd/5d468c171f201d6169bec848d1116e95736854eec72307299bc68939fe45/mmcv_lite-2.2.0-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/0b/03/e8a1da1e73d6d9ba3ada49780c0c27afcea4607539ccf9a4be75e2b08533/mmengine-0.10.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/b7/97/30a3a3775ead580134088dfc116a410e2ae490c044ec357109eeb11503ec/monopriors-0.1.0-py3-none-any.whl
@@ -836,7 +836,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/zstd-1.5.6-ha6fb4c9_0.conda
       - pypi: https://files.pythonhosted.org/packages/6a/00/b08f23b7d7e1e14ce01419a467b583edbb93c6cdb8654e54a9cc579cd61f/addict-2.4.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ba/d6/b3046c86cdbb32084b94bbf4324d47acc9991419c2775dc4038fff19950e/calibur-0.0.1-py3-none-any.whl
-      - pypi: https://files.pythonhosted.org/packages/0b/8f/1493035518f57e71771cec5c8df06b3aa152a55fda88fdde6b6c0ca00b50/gradio_rerun-0.0.3-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/dd/ac/007d066b0cdcb81d7c6c299435a8c44741de814d1ca65600843f2d4ceeec/gradio_rerun-0.0.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/59/bd/5d468c171f201d6169bec848d1116e95736854eec72307299bc68939fe45/mmcv_lite-2.2.0-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/0b/03/e8a1da1e73d6d9ba3ada49780c0c27afcea4607539ccf9a4be75e2b08533/mmengine-0.10.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/b7/97/30a3a3775ead580134088dfc116a410e2ae490c044ec357109eeb11503ec/monopriors-0.1.0-py3-none-any.whl
@@ -3130,13 +3130,15 @@ packages:
   timestamp: 1722483399611
 - kind: pypi
   name: gradio-rerun
-  version: 0.0.3
-  url: https://files.pythonhosted.org/packages/0b/8f/1493035518f57e71771cec5c8df06b3aa152a55fda88fdde6b6c0ca00b50/gradio_rerun-0.0.3-py3-none-any.whl
-  sha256: 7101b3d9a3ee3867ca9c560bc8285627b55f10f6fac26a812c573e495be6533b
+  version: 0.0.4
+  url: https://files.pythonhosted.org/packages/dd/ac/007d066b0cdcb81d7c6c299435a8c44741de814d1ca65600843f2d4ceeec/gradio_rerun-0.0.4-py3-none-any.whl
+  sha256: 6348c5fa2d9b06369b65d9c8c50ac3cfde8ce1ad196c6c4f0accf57f9f2d5517
   requires_dist:
   - gradio<5.0,>=4.0
-  - rerun-sdk>=0.16.1
+  - opencv-python
+  - rerun-sdk==0.17.0
   - build ; extra == 'dev'
+  - opencv-python>=4.10.0 ; extra == 'dev'
   - twine ; extra == 'dev'
   requires_python: '>=3.8'
 - kind: conda
@@ -5428,12 +5430,12 @@ packages:
   name: mini-nvs-solver
   version: 0.1.0
   path: .
-  sha256: 1cd0584ea37071887672b14aba78ad03f7cd4576760b7648bc78392ce2c80f71
+  sha256: aef8de12b64b5d08f7a6bc3430fbc95357123b7699058031cdbdd839c8fc63a0
   requires_dist:
-  - gradio-rerun>=0.0.3,<0.0.4
   - monopriors>=0.1.0,<0.2
   - mmcv-lite>=2.2.0,<3
   - calibur>=0.0.1,<0.0.2
+  - gradio-rerun>=0.0.4,<0.0.5
   requires_python: '>=3.10'
   editable: true
 - kind: conda
