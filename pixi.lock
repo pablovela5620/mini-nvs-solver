@@ -5430,7 +5430,7 @@ packages:
   name: mini-nvs-solver
   version: 0.1.0
   path: .
-  sha256: aef8de12b64b5d08f7a6bc3430fbc95357123b7699058031cdbdd839c8fc63a0
+  sha256: 8d9edc47497939e3a880f4c63000a708dc9834a398dcb93d2fbc80e868c50f03
   requires_dist:
   - monopriors>=0.1.0,<0.2
   - mmcv-lite>=2.2.0,<3

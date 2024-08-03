@@ -47,7 +47,9 @@ from monopriors.relative_depth_models.depth_anything_v2 import DepthAnythingV2Pr
 
 from mini_nvs_solver.custom_diffusers_pipeline.svd import StableVideoDiffusionPipeline
 from mini_nvs_solver.custom_diffusers_pipeline.scheduler import EulerDiscreteScheduler
-
+from mini_nvs_solver.threaded_logging_utils import svd_render_threaded
+from queue import Queue
+import threading
 
 SVD_HEIGHT: Final[int] = 576
 SVD_WIDTH: Final[int] = 1024
@@ -73,7 +75,7 @@ def svd_render(
     masks: Float64[torch.Tensor, "b 72 128"],
     cond_image: PIL.Image.Image,
     lambda_ts: Float64[torch.Tensor, "n b"],
-    num_denoise_iters: Literal[2, 25, 50, 100],
+    num_denoise_iters: Literal[2, 5, 25, 50, 100],
     weight_clamp: float,
     svd_pipe: StableVideoDiffusionPipeline,
 ):
@@ -105,7 +107,7 @@ def gradio_warped_image(
     major_radius: float = 60.0,
     minor_radius: float = 70.0,
     num_frames: int = 25,  # StableDiffusion Video generates 25 frames
-    progress=gr.Progress(track_tqdm=True),
+    progress=gr.Progress(track_tqdm=False),
 ):
     if num_denoise_iters != 2 and IN_SPACES:
         gr.Warning(
@@ -205,15 +207,55 @@ def gradio_warped_image(
     lambda_ts: Float64[torch.Tensor, "n b"] = load_lambda_ts(num_denoise_iters)
     progress(0.15, desc="Starting diffusion")
 
-    frames: list[PIL.Image.Image] = svd_render(
-        image_o=rgb_resized,
-        masks=masks,
-        cond_image=cond_image,
-        lambda_ts=lambda_ts,
-        num_denoise_iters=num_denoise_iters,
-        weight_clamp=0.2,
-        svd_pipe=SVD_PIPE,
+    # frames: list[PIL.Image.Image] = svd_render(
+    #     image_o=rgb_resized,
+    #     masks=masks,
+    #     cond_image=cond_image,
+    #     lambda_ts=lambda_ts,
+    #     num_denoise_iters=num_denoise_iters,
+    #     weight_clamp=0.2,
+    #     svd_pipe=SVD_PIPE,
+    # )
+
+    # to allow logging from a separate thread
+    log_queue: Queue = Queue()
+    handle = threading.Thread(
+        target=svd_render_threaded,
+        kwargs={
+            "image_o": rgb_resized,
+            "masks": masks,
+            "cond_image": cond_image,
+            "lambda_ts": lambda_ts,
+            "num_denoise_iters": num_denoise_iters,
+            "weight_clamp": 0.2,
+            "svd_pipe": SVD_PIPE,
+            "log_queue": log_queue,
+        },
     )
+
+    handle.start()
+    i = 0
+    while True:
+        msg = log_queue.get()
+        match msg:
+            case frames if all(isinstance(frame, PIL.Image.Image) for frame in frames):
+                break
+            case entity_path, entity, times:
+                i += 1
+                rr.reset_time()
+                for timeline, time in times:
+                    if isinstance(time, int):
+                        rr.set_time_sequence(timeline, time)
+                    else:
+                        rr.set_time_seconds(timeline, time)
+                static = False
+                if entity_path == "latents":
+                    static = True
+                rr.log(entity_path, entity, static=static)
+                yield stream.read(), None, [], f"{i} out of {num_denoise_iters}"
+            case _:
+                assert False
+    handle.join()
 
     # all frames but the first one
     frame: np.ndarray

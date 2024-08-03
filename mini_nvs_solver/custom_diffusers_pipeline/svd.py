@@ -21,7 +21,7 @@ from diffusers.utils.torch_utils import randn_tensor
 from diffusers.pipelines import DiffusionPipeline
 from einops import rearrange
 
-from queue import SimpleQueue
+from queue import SimpleQueue, Queue
 import rerun as rr
 
 from typing import no_type_check
@@ -317,7 +317,7 @@ class StableVideoDiffusionPipeline(DiffusionPipeline):
     def __call__(
         self,
         image: Union[PIL.Image.Image, List[PIL.Image.Image], torch.FloatTensor],
-        log_queue: SimpleQueue | None,
+        log_queue: SimpleQueue | Queue | None,
         temp_cond,
         mask,
         lambda_ts,

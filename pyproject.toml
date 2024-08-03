@@ -7,7 +7,8 @@ requires-python = ">= 3.10"
 dependencies = [
     "monopriors>=0.1.0,<0.2",
     "mmcv-lite>=2.2.0,<3",
-    "calibur>=0.0.1,<0.0.2", "gradio-rerun>=0.0.4,<0.0.5",
+    "calibur>=0.0.1,<0.0.2",
+    "gradio-rerun>=0.0.4,<0.0.5",
 ]
 
 [build-system]
@@ -22,7 +23,7 @@ channels = ["nvidia/label/cuda-11.8.0", "xformers", "conda-forge", "pytorch"]
 platforms = ["linux-64"]
 
 [tool.pixi.system-requirements]
-libc = { family = "glibc", version = "2.31" }
+libc = { family = "glibc", version = "2.32" }
 
 [tool.pixi.activation]
 scripts = [".pixi.sh"]
@@ -86,8 +87,8 @@ tqdm = ">=4.66.4,<4.67"
 beartype = ">=0.18.5,<0.19"
 pyperclip = "==1.8.2"
 zip = ">=3.0,<4"
-rerun-sdk = ">=0.17.0,<0.18"
 gradio = ">=4.40.0,<5"
+rerun-sdk = ">=0.17.0,<0.18"
 
 [tool.pixi.feature.spaces.pypi-dependencies]
 spaces = "*"

@@ -11,6 +11,7 @@ def log_camera(
     cam: PinholeParameters,
     rgb_np_hw3: UInt8[np.ndarray, "h w 3"],
     depth: Float32[np.ndarray, "h w"] | None = None,
+    jpeg_quality: int = 50,
 ) -> None:
     pinhole_log_path: Path = cam_log_path / "pinhole"
     rr.log(
@@ -31,7 +32,10 @@ def log_camera(
             image_plane_distance=5.0,
         ),
     )
-    rr.log(f"{pinhole_log_path}/rgb", rr.Image(rgb_np_hw3).compress(jpeg_quality=80))
+    rr.log(
+        f"{pinhole_log_path}/rgb",
+        rr.Image(rgb_np_hw3).compress(jpeg_quality=jpeg_quality),
+    )
     if depth is not None:
         rr.log(
             f"{pinhole_log_path}/depth",
@@ -43,13 +47,16 @@ def create_svd_blueprint(parent_log_path: Path) -> rrb.Blueprint:
     nerfstudio_path = Path("nerfstudio")
     blueprint = rrb.Blueprint(
         rrb.Horizontal(
-            rrb.Vertical(
+            rrb.Tabs(
                 rrb.Spatial3DView(
+                    name="3D Projection Original",
                     origin=f"{parent_log_path}",
                 ),
                 rrb.Spatial3DView(
+                    name="3D Projection Nerfstudio",
                     origin=f"{nerfstudio_path}",
                 ),
+                active_tab="3D Projection Original",
             ),
             rrb.Vertical(
                 rrb.Spatial2DView(
@@ -68,7 +75,7 @@ def create_svd_blueprint(parent_log_path: Path) -> rrb.Blueprint:
                 ),
                 rrb.TensorView(origin="latents"),
             ),
-            column_shares=[5, 1.5, 2, 2],
+            column_shares=[5, 3, 2],
         ),
         collapse_panels=True,
     )

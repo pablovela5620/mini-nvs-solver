@@ -8,9 +8,9 @@ from mini_nvs_solver.custom_diffusers_pipeline.svd import StableVideoDiffusionPi
 
 
 def svd_render_threaded(
-    image_o: PIL.Image.Image,
+    image_o: PIL.Image,
     masks: Float64[torch.Tensor, "b 72 128"],
-    cond_image: PIL.Image.Image,
+    cond_image: PIL.Image,
     lambda_ts: Float64[torch.Tensor, "n b"],
     num_denoise_iters: Literal[2, 25, 50, 100],
     weight_clamp: float,
@@ -28,6 +28,7 @@ def svd_render_threaded(
         decode_chunk_size=8,
         num_inference_steps=num_denoise_iters,
     ).frames[0]
+
     if log_queue is not None:
         log_queue.put(frames)
 
