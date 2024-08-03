@@ -16,8 +16,7 @@ pixi run app
 ## Demo
 Hosted Demos can be found on huggingface spaces
 
-TODO
-<a href='https://huggingface.co/spaces/pablovela5620/depth-compare'><img src='https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Spaces-blue'></a>
+<a href='https://huggingface.co/spaces/pablovela5620/mini-nvs-solver'><img src='https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Spaces-blue'></a>
 
 
 To run the gradio frontend

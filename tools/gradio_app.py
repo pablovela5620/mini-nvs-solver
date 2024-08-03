@@ -286,39 +286,47 @@ def gradio_warped_image(
     yield stream.read(), video_file_path, [str(zip_file_path)], "finished"
 
 
+title = "# Mini NVS Solver"
+description1 = """### Demo showcasing [NVS-Solver: Video Diffusion Model as Zero-Shot Novel View Synthesizer](https://github.com/ZHU-Zhiyu/NVS_Solver)"""
+description2 = """### Checkout the Mini NVS Solver Repo [![GitHub Repo stars](https://img.shields.io/github/stars/pablovela5620/mini-nvs-solver)](https://github.com/pablovela5620/mini-nvs-solver)"""
+description3 = """### HIGHLY RECOMMNEDED to run this demo locally through the github repo to avoid GPU abort due to long running time"""
+
 with gr.Blocks() as demo:
-    with gr.Tab("Streaming"):
-        with gr.Row():
-            img = gr.Image(interactive=True, label="Image", type="filepath")
-            with gr.Tab(label="Settings"):
-                with gr.Column():
-                    warp_img_btn = gr.Button("Warp Images")
-                    num_iters = gr.Radio(
-                        choices=[2, 25, 50, 100],
-                        value=2,
-                        label="Number of iterations",
-                        type="value",
-                    )
-                    cam_direction = gr.Radio(
-                        choices=["left", "right"],
-                        value="left",
-                        label="Camera direction",
-                        type="value",
-                    )
-                    degrees_per_frame = gr.Slider(
-                        minimum=0.25,
-                        maximum=1.0,
-                        step=0.05,
-                        value=0.3,
-                        label="Degrees per frame",
-                    )
-                    iteration_num = gr.Textbox(
-                        value="",
-                        label="Status",
-                    )
-            with gr.Tab(label="Outputs"):
-                video_output = gr.Video(interactive=False)
-                image_files_output = gr.File(interactive=False, file_count="multiple")
+    gr.Markdown(title)
+    gr.Markdown(description1)
+    gr.Markdown(description2)
+    gr.Markdown(description3)
+    with gr.Row():
+        img = gr.Image(interactive=True, label="Image", type="filepath")
+        with gr.Tab(label="Settings"):
+            with gr.Column():
+                warp_img_btn = gr.Button("Warp Images")
+                num_iters = gr.Radio(
+                    choices=[2, 25, 50, 100],
+                    value=2,
+                    label="Number of iterations",
+                    type="value",
+                )
+                cam_direction = gr.Radio(
+                    choices=["left", "right"],
+                    value="left",
+                    label="Camera direction",
+                    type="value",
+                )
+                degrees_per_frame = gr.Slider(
+                    minimum=0.25,
+                    maximum=1.0,
+                    step=0.05,
+                    value=0.3,
+                    label="Degrees per frame",
+                )
+                iteration_num = gr.Textbox(
+                    value="",
+                    label="Status",
+                )
+        with gr.Tab(label="Outputs"):
+            video_output = gr.Video(interactive=False)
+            image_files_output = gr.File(interactive=False, file_count="multiple")
 
     # Rerun 0.16 has issues when embedded in a Gradio tab, so we share a viewer between all the tabs.
     # In 0.17 we can instead scope each viewer to its own tab to clean up these examples further.
