@@ -95,7 +95,7 @@ def svd_render(
 
 if IN_SPACES:
     svd_render = spaces.GPU(svd_render)
-    image_to_depth = spaces.GPU(image_to_depth, duration=400)
+    image_to_depth = spaces.GPU(image_to_depth, duration=200)
 
 
 @rr.thread_local_stream("warped_image")
@@ -207,55 +207,58 @@ def gradio_warped_image(
     lambda_ts: Float64[torch.Tensor, "n b"] = load_lambda_ts(num_denoise_iters)
     progress(0.15, desc="Starting diffusion")
 
-    # frames: list[PIL.Image.Image] = svd_render(
-    #     image_o=rgb_resized,
-    #     masks=masks,
-    #     cond_image=cond_image,
-    #     lambda_ts=lambda_ts,
-    #     num_denoise_iters=num_denoise_iters,
-    #     weight_clamp=0.2,
-    #     svd_pipe=SVD_PIPE,
-    # )
+    if IN_SPACES:
+        frames: list[PIL.Image.Image] = svd_render(
+            image_o=rgb_resized,
+            masks=masks,
+            cond_image=cond_image,
+            lambda_ts=lambda_ts,
+            num_denoise_iters=num_denoise_iters,
+            weight_clamp=0.2,
+            svd_pipe=SVD_PIPE,
+        )
+    else:
+        # to allow logging from a separate thread
+        log_queue: Queue = Queue()
+        handle = threading.Thread(
+            target=svd_render_threaded,
+            kwargs={
+                "image_o": rgb_resized,
+                "masks": masks,
+                "cond_image": cond_image,
+                "lambda_ts": lambda_ts,
+                "num_denoise_iters": num_denoise_iters,
+                "weight_clamp": 0.2,
+                "svd_pipe": SVD_PIPE,
+                "log_queue": log_queue,
+            },
+        )
 
-    # to allow logging from a separate thread
-    log_queue: Queue = Queue()
-    handle = threading.Thread(
-        target=svd_render_threaded,
-        kwargs={
-            "image_o": rgb_resized,
-            "masks": masks,
-            "cond_image": cond_image,
-            "lambda_ts": lambda_ts,
-            "num_denoise_iters": num_denoise_iters,
-            "weight_clamp": 0.2,
-            "svd_pipe": SVD_PIPE,
-            "log_queue": log_queue,
-        },
-    )
-
-    handle.start()
-    i = 0
-    while True:
-        msg = log_queue.get()
-        match msg:
-            case frames if all(isinstance(frame, PIL.Image.Image) for frame in frames):
-                break
-            case entity_path, entity, times:
-                i += 1
-                rr.reset_time()
-                for timeline, time in times:
-                    if isinstance(time, int):
-                        rr.set_time_sequence(timeline, time)
-                    else:
-                        rr.set_time_seconds(timeline, time)
-                static = False
-                if entity_path == "latents":
-                    static = True
-                rr.log(entity_path, entity, static=static)
-                yield stream.read(), None, [], f"{i} out of {num_denoise_iters}"
-            case _:
-                assert False
-    handle.join()
+        handle.start()
+        i = 0
+        while True:
+            msg = log_queue.get()
+            match msg:
+                case frames if all(
+                    isinstance(frame, PIL.Image.Image) for frame in frames
+                ):
+                    break
+                case entity_path, entity, times:
+                    i += 1
+                    rr.reset_time()
+                    for timeline, time in times:
+                        if isinstance(time, int):
+                            rr.set_time_sequence(timeline, time)
+                        else:
+                            rr.set_time_seconds(timeline, time)
+                    static = False
+                    if entity_path == "latents":
+                        static = True
+                    rr.log(entity_path, entity, static=static)
+                    yield stream.read(), None, [], f"{i} out of {num_denoise_iters}"
+                case _:
+                    assert False
+        handle.join()
 
     # all frames but the first one
     frame: np.ndarray
