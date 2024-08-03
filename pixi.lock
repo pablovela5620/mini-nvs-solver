@@ -414,6 +414,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/6a/00/b08f23b7d7e1e14ce01419a467b583edbb93c6cdb8654e54a9cc579cd61f/addict-2.4.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ba/d6/b3046c86cdbb32084b94bbf4324d47acc9991419c2775dc4038fff19950e/calibur-0.0.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/dd/ac/007d066b0cdcb81d7c6c299435a8c44741de814d1ca65600843f2d4ceeec/gradio_rerun-0.0.4-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/5e/89/863f333b49603cc8d3c8862a428cc8fbaa9388ac8f076e9fa5ef3e729c3c/hf_transfer-0.1.8-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
       - pypi: https://files.pythonhosted.org/packages/59/bd/5d468c171f201d6169bec848d1116e95736854eec72307299bc68939fe45/mmcv_lite-2.2.0-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/0b/03/e8a1da1e73d6d9ba3ada49780c0c27afcea4607539ccf9a4be75e2b08533/mmengine-0.10.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/b7/97/30a3a3775ead580134088dfc116a410e2ae490c044ec357109eeb11503ec/monopriors-0.1.0-py3-none-any.whl
@@ -837,6 +838,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/6a/00/b08f23b7d7e1e14ce01419a467b583edbb93c6cdb8654e54a9cc579cd61f/addict-2.4.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ba/d6/b3046c86cdbb32084b94bbf4324d47acc9991419c2775dc4038fff19950e/calibur-0.0.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/dd/ac/007d066b0cdcb81d7c6c299435a8c44741de814d1ca65600843f2d4ceeec/gradio_rerun-0.0.4-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/5e/89/863f333b49603cc8d3c8862a428cc8fbaa9388ac8f076e9fa5ef3e729c3c/hf_transfer-0.1.8-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
       - pypi: https://files.pythonhosted.org/packages/59/bd/5d468c171f201d6169bec848d1116e95736854eec72307299bc68939fe45/mmcv_lite-2.2.0-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/0b/03/e8a1da1e73d6d9ba3ada49780c0c27afcea4607539ccf9a4be75e2b08533/mmengine-0.10.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/b7/97/30a3a3775ead580134088dfc116a410e2ae490c044ec357109eeb11503ec/monopriors-0.1.0-py3-none-any.whl
@@ -3216,6 +3218,12 @@ packages:
   purls: []
   size: 1590518
   timestamp: 1719579998295
+- kind: pypi
+  name: hf-transfer
+  version: 0.1.8
+  url: https://files.pythonhosted.org/packages/5e/89/863f333b49603cc8d3c8862a428cc8fbaa9388ac8f076e9fa5ef3e729c3c/hf_transfer-0.1.8-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
+  sha256: f865c33ada5bd3650c2b46e59979f2d7755c3f517f8d0facc78576a0c7d26406
+  requires_python: '>=3.7'
 - kind: conda
   name: hpack
   version: 4.0.0
@@ -5430,12 +5438,13 @@ packages:
   name: mini-nvs-solver
   version: 0.1.0
   path: .
-  sha256: 8d9edc47497939e3a880f4c63000a708dc9834a398dcb93d2fbc80e868c50f03
+  sha256: 089ac14d28f00af34a9f99fd08cf01789f4f438e4771ff06f5fa132deaa1461d
   requires_dist:
   - monopriors>=0.1.0,<0.2
   - mmcv-lite>=2.2.0,<3
   - calibur>=0.0.1,<0.0.2
   - gradio-rerun>=0.0.4,<0.0.5
+  - hf-transfer>=0.1.8,<0.2
   requires_python: '>=3.10'
   editable: true
 - kind: conda

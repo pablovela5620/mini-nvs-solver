@@ -8,7 +8,7 @@ dependencies = [
     "monopriors>=0.1.0,<0.2",
     "mmcv-lite>=2.2.0,<3",
     "calibur>=0.0.1,<0.0.2",
-    "gradio-rerun>=0.0.4,<0.0.5",
+    "gradio-rerun>=0.0.4,<0.0.5", "hf-transfer>=0.1.8,<0.2",
 ]
 
 [build-system]
