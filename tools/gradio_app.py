@@ -300,7 +300,7 @@ with gr.Blocks() as demo:
         img = gr.Image(interactive=True, label="Image", type="filepath")
         with gr.Tab(label="Settings"):
             with gr.Column():
-                warp_img_btn = gr.Button("Warp Images")
+                warp_img_btn = gr.Button("Run NVS Solver")
                 num_iters = gr.Radio(
                     choices=[2, 25, 50, 100],
                     value=2,
@@ -342,12 +342,12 @@ with gr.Blocks() as demo:
         outputs=[viewer, video_output, image_files_output, iteration_num],
     )
 
+    examples_paths = Path("examples").glob("*.jpg")
+    # set the examples to be the sorted list of input parameterss (path, remove_flying_pixels, depth_map_threshold)
+    examples_list = sorted([[str(path)] for path in examples_paths])
+
     gr.Examples(
-        [
-            [
-                "examples/000001.jpg",
-            ],
-        ],
+        examples_list,
         fn=warp_img_btn,
         inputs=[img, num_iters, cam_direction, degrees_per_frame],
         outputs=[viewer, video_output, image_files_output],
